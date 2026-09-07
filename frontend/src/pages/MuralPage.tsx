@@ -1,24 +1,19 @@
 import { useState } from "react";
-import {
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { Plus, Search, SlidersHorizontal, X } from "lucide-react";
 
 import CreatePostModal, {
   type NewPost,
   type PostAudience,
+  type PostAttachment,
 } from "../components/mural/CreatePostModal";
 
 import PostCard from "../components/mural/PostCard";
 import { useTheme } from "../contexts/useTheme";
 
-
 interface MuralPageProps {
   isAdmin?: boolean;
   searchTerm?: string;
-  onSearchChange?:(value: string) => void
+  onSearchChange?: (value: string) => void;
 }
 
 interface Post {
@@ -33,6 +28,7 @@ interface Post {
   audience?: PostAudience;
   audienceValue?: string;
   link?: string;
+  attachments?: PostAttachment[];
 }
 
 const initialPosts: Post[] = [
@@ -62,12 +58,7 @@ const initialPosts: Post[] = [
   },
 ];
 
-const countries = [
-  "Colombia",
-  "México",
-  "España",
-  
-];
+const countries = ["Colombia", "México", "España"];
 
 const areas = [
   "Financiera",
@@ -76,43 +67,28 @@ const areas = [
   "Servicio al Cliente",
 ];
 
-const campaigns = [
-  "Campaña A",
-  "Campaña B",
-  "Campaña C",
-];
+const campaigns = ["Campaña A", "Campaña B", "Campaña C"];
 
 function MuralPage({
   isAdmin = false,
   searchTerm = "",
   onSearchChange,
-  
 }: MuralPageProps) {
   const { isDarkMode } = useTheme();
 
-  const [isCreatePostOpen, setIsCreatePostOpen] =
-    useState(false);
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
-  const [posts, setPosts] =
-    useState<Post[]>(initialPosts);
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
 
-  const [editingPost, setEditingPost] =
-    useState<Post | null>(null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
+  const [countryFilter, setCountryFilter] = useState("all");
 
+  const [areaFilter, setAreaFilter] = useState("all");
 
-  const [countryFilter, setCountryFilter] =
-    useState("all");
+  const [campaignFilter, setCampaignFilter] = useState("all");
 
-  const [areaFilter, setAreaFilter] =
-    useState("all");
-
-  const [campaignFilter, setCampaignFilter] =
-    useState("all");
-
-  const handleCreatePost = (
-    newPost: NewPost,
-  ) => {
+  const handleCreatePost = (newPost: NewPost) => {
     const post: Post = {
       id: Date.now(),
       title: newPost.title,
@@ -123,24 +99,19 @@ function MuralPage({
       dislikes: 0,
       image: newPost.image,
       audience: newPost.audience,
-      audienceValue:
-        newPost.audienceValue,
+      audienceValue: newPost.audienceValue,
       link: newPost.link,
+      attachments : newPost.attachments,
     };
 
-    setPosts((currentPosts) => [
-      post,
-      ...currentPosts,
-    ]);
+    setPosts((currentPosts) => [post, ...currentPosts]);
   };
 
   const handleEditPost = (post: Post) => {
     setEditingPost(post);
   };
 
-  const handleUpdatePost = (
-    updatedPost: NewPost,
-  ) => {
+  const handleUpdatePost = (updatedPost: NewPost) => {
     if (!editingPost) {
       return;
     }
@@ -155,8 +126,8 @@ function MuralPage({
               image: updatedPost.image,
               link: updatedPost.link,
               audience: updatedPost.audience,
-              audienceValue:
-                updatedPost.audienceValue,
+              audienceValue: updatedPost.audienceValue,
+              attachments: updatedPost.attachments,
             }
           : post,
       ),
@@ -165,9 +136,7 @@ function MuralPage({
     setEditingPost(null);
   };
 
-  const handleDeletePost = (
-    postId: number,
-  ) => {
+  const handleDeletePost = (postId: number) => {
     const confirmed = window.confirm(
       "¿Estás seguro de que quieres eliminar esta publicación?",
     );
@@ -177,14 +146,11 @@ function MuralPage({
     }
 
     setPosts((currentPosts) =>
-      currentPosts.filter(
-        (post) => post.id !== postId,
-      ),
+      currentPosts.filter((post) => post.id !== postId),
     );
   };
 
-  const normalizedSearch =
-    searchTerm.trim().toLowerCase();
+  const normalizedSearch = searchTerm.trim().toLowerCase();
 
   const filteredPosts = posts.filter((post) => {
     const searchableValues = [
@@ -197,48 +163,25 @@ function MuralPage({
     const matchesSearch =
       !normalizedSearch ||
       searchableValues
-        .filter(
-          (value): value is string =>
-            Boolean(value),
-        )
-        .some((value) =>
-          value
-            .toLowerCase()
-            .includes(normalizedSearch),
-        );
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(normalizedSearch));
 
     const matchesCountry =
       countryFilter === "all" ||
       post.audience === "all" ||
-      (
-        post.audience === "country" &&
-        post.audienceValue ===
-          countryFilter
-      );
+      (post.audience === "country" && post.audienceValue === countryFilter);
 
     const matchesArea =
       areaFilter === "all" ||
       post.audience === "all" ||
-      (
-        post.audience === "area" &&
-        post.audienceValue === areaFilter
-      );
+      (post.audience === "area" && post.audienceValue === areaFilter);
 
     const matchesCampaign =
       campaignFilter === "all" ||
       post.audience === "all" ||
-      (
-        post.audience === "campaign" &&
-        post.audienceValue ===
-          campaignFilter
-      );
+      (post.audience === "campaign" && post.audienceValue === campaignFilter);
 
-    return (
-      matchesSearch &&
-      matchesCountry &&
-      matchesArea &&
-      matchesCampaign
-    );
+    return matchesSearch && matchesCountry && matchesArea && matchesCampaign;
   });
 
   const hasActiveFilters =
@@ -248,7 +191,7 @@ function MuralPage({
     campaignFilter !== "all";
 
   const handleClearFilters = () => {
-    onSearchChange?.("all")
+    onSearchChange?.("");
     setCountryFilter("all");
     setAreaFilter("all");
     setCampaignFilter("all");
@@ -258,15 +201,12 @@ function MuralPage({
     <section className="mural-page">
       <div className="mural-page__heading">
         <div>
-          <span className="mural-page__eyebrow">
-            Talento & Cultura
-          </span>
+          <span className="mural-page__eyebrow">Talento & Cultura</span>
 
           <h1>Mural</h1>
 
           <p>
-            Mantente informado sobre las
-            novedades y comunicaciones de la
+            Mantente informado sobre las novedades y comunicaciones de la
             empresa.
           </p>
         </div>
@@ -275,41 +215,27 @@ function MuralPage({
           <button
             type="button"
             className="mural-page__create-button"
-            onClick={() =>
-              setIsCreatePostOpen(true)
-            }
+            onClick={() => setIsCreatePostOpen(true)}
           >
             <Plus size={18} />
-            <span>
-              Crear publicación
-            </span>
+            <span>Crear publicación</span>
           </button>
         )}
       </div>
 
       <div className="mural-page__filters">
-        
         <div className="mural-page__filter-group">
           <SlidersHorizontal size={17} />
 
           <select
             value={countryFilter}
-            onChange={(event) =>
-              setCountryFilter(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setCountryFilter(event.target.value)}
             aria-label="Filtrar por país"
           >
-            <option value="all">
-              Todos los países
-            </option>
+            <option value="all">Todos los países</option>
 
             {countries.map((country) => (
-              <option
-                key={country}
-                value={country}
-              >
+              <option key={country} value={country}>
                 {country}
               </option>
             ))}
@@ -317,22 +243,13 @@ function MuralPage({
 
           <select
             value={areaFilter}
-            onChange={(event) =>
-              setAreaFilter(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setAreaFilter(event.target.value)}
             aria-label="Filtrar por área"
           >
-            <option value="all">
-              Todas las áreas
-            </option>
+            <option value="all">Todas las áreas</option>
 
             {areas.map((area) => (
-              <option
-                key={area}
-                value={area}
-              >
+              <option key={area} value={area}>
                 {area}
               </option>
             ))}
@@ -340,22 +257,13 @@ function MuralPage({
 
           <select
             value={campaignFilter}
-            onChange={(event) =>
-              setCampaignFilter(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setCampaignFilter(event.target.value)}
             aria-label="Filtrar por campaña"
           >
-            <option value="all">
-              Todas las campañas
-            </option>
+            <option value="all">Todas las campañas</option>
 
             {campaigns.map((campaign) => (
-              <option
-                key={campaign}
-                value={campaign}
-              >
+              <option key={campaign} value={campaign}>
                 {campaign}
               </option>
             ))}
@@ -391,14 +299,11 @@ function MuralPage({
             link={post.link}
             audience={post.audience}
             audienceValue={post.audienceValue}
+            attachments ={post.attachments}
             isDarkMode={isDarkMode}
             isAdmin={isAdmin}
-            onEdit={() =>
-              handleEditPost(post)
-            }
-            onDelete={() =>
-              handleDeletePost(post.id)
-            }
+            onEdit={() => handleEditPost(post)}
+            onDelete={() => handleDeletePost(post.id)}
           />
         ))}
 
@@ -406,56 +311,37 @@ function MuralPage({
           <div className="mural-page__empty">
             <Search size={24} />
 
-            <h3>
-              No encontramos publicaciones
-            </h3>
+            <h3>No encontramos publicaciones</h3>
 
-            <p>
-              Prueba con otro término o cambia
-              los filtros.
-            </p>
+            <p>Prueba con otro término o cambia los filtros.</p>
 
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-              >
-                Limpiar filtros
-              </button>
-            )}
+            
           </div>
         )}
       </div>
 
       <CreatePostModal
         isOpen={isCreatePostOpen}
-        onClose={() =>
-          setIsCreatePostOpen(false)
-        }
+        onClose={() => setIsCreatePostOpen(false)}
         onCreatePost={handleCreatePost}
       />
 
       <CreatePostModal
         key={editingPost?.id ?? "edit-post"}
         isOpen={editingPost !== null}
-        onClose={() =>
-          setEditingPost(null)
-        }
+        onClose={() => setEditingPost(null)}
         onCreatePost={handleUpdatePost}
         mode="edit"
         initialPost={
           editingPost
             ? {
                 title: editingPost.title,
-                content:
-                  editingPost.content,
-                audience:
-                  editingPost.audience ??
-                  "all",
-                audienceValue:
-                  editingPost.audienceValue,
+                content: editingPost.content,
+                audience: editingPost.audience ?? "all",
+                audienceValue: editingPost.audienceValue,
                 image: editingPost.image,
                 link: editingPost.link,
+                attachments: editingPost.attachments,
               }
             : undefined
         }

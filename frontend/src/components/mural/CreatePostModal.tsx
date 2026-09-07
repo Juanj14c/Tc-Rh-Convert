@@ -1,11 +1,19 @@
 import { useState } from "react";
-import { Image, X } from "lucide-react";
+import { FileText, Image, X } from "lucide-react";
 
 export type PostAudience =
   | "all"
   | "campaign"
   | "area"
   | "country";
+
+export interface PostAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+}
 
 export interface NewPost {
   title: string;
@@ -14,6 +22,7 @@ export interface NewPost {
   audienceValue?: string;
   image?: string;
   link?: string;
+  attachments?: PostAttachment[];
 }
 
 interface CreatePostModalProps {
@@ -38,11 +47,36 @@ const mockAreas = [
 ];
 
 const mockCountries = [
-  "Argentina",
+  "España",
   "Colombia",
   "México",
-  "Perú",
-  "Chile",
+  
+];
+
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
+const ALLOWED_ATTACHMENT_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "application/zip",
+];
+
+const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".txt",
+  ".zip",
 ];
 
 function CreatePostModal({
@@ -80,6 +114,14 @@ function CreatePostModal({
     initialPost?.link ?? "",
   );
 
+  const [attachments, setAttachments] =
+    useState<PostAttachment[]>(
+      initialPost?.attachments ?? [],
+    );
+
+  const [attachmentError, setAttachmentError] =
+    useState("");
+
   if (!isOpen) {
     return null;
   }
@@ -114,6 +156,99 @@ function CreatePostModal({
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const handleAttachmentChange = (
+  event: React.ChangeEvent<HTMLInputElement>,
+) => {
+  const files = Array.from(event.target.files ?? []);
+
+  if (files.length === 0) {
+    return;
+  }
+
+  setAttachmentError("");
+
+  const validFiles: File[] = [];
+
+  for (const file of files) {
+    const extension = `.${file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase()}`;
+
+    const isValidType =
+      ALLOWED_ATTACHMENT_TYPES.includes(file.type) ||
+      ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension);
+
+    if (!isValidType) {
+      setAttachmentError(
+        `El archivo "${file.name}" no es un tipo permitido.`,
+      );
+      continue;
+    }
+
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setAttachmentError(
+        `El archivo "${file.name}" supera el límite de 10 MB.`,
+      );
+      continue;
+    }
+
+    validFiles.push(file);
+  }
+
+  validFiles.forEach((file) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        return;
+      }
+
+      const newAttachment: PostAttachment = {
+        id: `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}`,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: reader.result,
+      };
+
+      setAttachments((current) => [
+        ...current,
+        newAttachment,
+      ]);
+    };
+
+    reader.readAsDataURL(file);
+  });
+
+  event.target.value = "";
+};
+
+  const handleRemoveAttachment = (
+    attachmentId: string,
+  ) => {
+    setAttachments((current) =>
+      current.filter(
+        (attachment) =>
+          attachment.id !== attachmentId,
+      ),
+    );
+  };
+
+  const formatFileSize = (size: number) => {
+    if (size < 1024) {
+      return `${size} B`;
+    }
+
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleAudienceChange = (
@@ -152,6 +287,7 @@ function CreatePostModal({
           : audienceValue,
       image: imagePreview || undefined,
       link: link.trim() || undefined,
+      attachments,
     });
 
     handleClose();
@@ -165,6 +301,8 @@ function CreatePostModal({
     setImageFile(null);
     setImagePreview("");
     setLink("");
+    setAttachments([]);
+    setAttachmentError("");
 
     onClose();
   };
@@ -216,6 +354,7 @@ function CreatePostModal({
                   setTitle(event.target.value)
                 }
                 placeholder="Escribe el título de la publicación"
+                required
               />
             </label>
 
@@ -256,12 +395,105 @@ function CreatePostModal({
                 </span>
               </label>
 
-              {imagePreview && (
-                <div className="create-post-modal__preview">
-                  <img
-                    src={imagePreview}
-                    alt="Vista previa de la publicación"
-                  />
+       {imagePreview && (
+              <div className="create-post-modal__preview">
+                <img
+                  src={imagePreview}
+                  alt="Vista previa de la publicación"
+                />
+
+                <button
+                  type="button"
+                  className="create-post-modal__remove-image"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview("");
+                  }}
+                  aria-label="Quitar imagen"
+                  title="Quitar imagen"
+                >
+                  
+                  <X size={16} />
+                  <span>Quitar imagen</span>
+                </button>
+              </div>
+)}
+            </div>
+
+            <div className="create-post-modal__field">
+              <span>Archivos adjuntos</span>
+
+              <input
+                id="post-attachments"
+                type="file"
+                multiple
+                accept={ALLOWED_ATTACHMENT_EXTENSIONS.join(
+                  ",",
+                )}
+                onChange={handleAttachmentChange}
+                hidden
+              />
+
+              <label
+                htmlFor="post-attachments"
+                className="create-post-modal__upload"
+              >
+                <FileText size={18} />
+
+                <span>
+                  Seleccionar archivos
+                </span>
+              </label>
+
+              <small>
+                PDF, Word, Excel, PowerPoint, TXT o ZIP.
+                Máximo 10 MB por archivo.
+              </small>
+
+              {attachmentError && (
+                <p className="create-post-modal__error">
+                  {attachmentError}
+                </p>
+              )}
+
+              {attachments.length > 0 && (
+                <div className="create-post-modal__attachments">
+                  {attachments.map(
+                    (attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="create-post-modal__attachment"
+                      >
+                        <FileText size={18} />
+
+                        <div>
+                          <strong>
+                            {attachment.name}
+                          </strong>
+
+                          <span>
+                            {formatFileSize(
+                              attachment.size,
+                            )}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="delete-postal__archive"
+                          onClick={() =>
+                            handleRemoveAttachment(
+                              attachment.id,
+                            )
+                          }
+                          aria-label={`Eliminar ${attachment.name}`}
+                          title="Eliminar archivo"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -417,4 +649,4 @@ function CreatePostModal({
   );
 }
 
-export default CreatePostModal;
+export default CreatePostModal; 

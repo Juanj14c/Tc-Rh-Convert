@@ -2702,6 +2702,31 @@ body {
     height: 42px;
   }
 }
+@media (max-width: 640px) {
+  .post-card__attachment {
+    padding: 10px;
+    gap: 9px;
+  }
+
+  .post-card__attachment-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .post-card__attachment-actions {
+    gap: 4px;
+  }
+
+  .post-card__attachment-open,
+  .post-card__attachment-download {
+    padding: 7px;
+  }
+
+  .post-card__attachment-open span,
+  .post-card__attachment-download span {
+    display: none;
+  }
+}
 /* =========================
    LOGIN
    ========================= */
@@ -4939,40 +4964,76 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-
   margin-bottom: 20px;
 }
 
 .mural-page__search {
   flex: 1;
-
   min-width: 0;
-
   display: flex;
   align-items: center;
   gap: 9px;
-
   height: 42px;
-
-  padding: 0 13px;
-
+  padding: 0 12px;
   border: 1px solid var(--color-border);
   border-radius: 11px;
-
   background: var(--color-surface);
-
   color: var(--color-text-muted);
+}
+
+.mural-page__search-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.create-post-modal__remove-image,
+.delete-postal__archive {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.mural-page__search-clear:hover {
+  background: var(--color-primary-dark);
+}
+
+.delete-postal__archive:hover {
+  background: var(--color-primary-dark);
 }
 
 .mural-page__search input {
   width: 100%;
-
   border: none;
   outline: none;
-
   background: transparent;
   color: var(--color-text);
-
   font: inherit;
 }
 
@@ -4984,31 +5045,31 @@ body {
 
 .mural-page__filter-group select {
   height: 42px;
-
   padding: 0 32px 0 11px;
-
   border: 1px solid var(--color-border);
   border-radius: 11px;
-
   background: var(--color-surface);
-
   color: var(--color-text);
-
   font: inherit;
   font-size: 13px;
-
   outline: none;
   cursor: pointer;
+}
+
+.create-post-modal__remove-image:hover {
+  background: var(--color-primary-dark);
 }
 
 .mural-page__filter-group select:focus,
 .mural-page__search:focus-within {
   border-color: var(--color-accent);
-
   box-shadow:
     0 0 0 3px rgba(26, 235, 159, 0.1);
 }
 
+/* =========================
+   SIN RESULTADOS
+   ========================= */
 /* =========================
    SIN RESULTADOS
    ========================= */
@@ -5021,7 +5082,8 @@ body {
   align-items: center;
   justify-content: center;
 
-  padding: 30px;
+  padding: 40px 30px;
+  margin-top: 8px;
 
   text-align: center;
 
@@ -5029,7 +5091,7 @@ body {
 }
 
 .mural-page__empty svg {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   color: var(--color-primary);
 }
 
@@ -5040,6 +5102,7 @@ body {
 
   font-family: var(--font-heading);
   font-size: 18px;
+  font-weight: 700;
 }
 
 .mural-page__empty p {
@@ -5048,23 +5111,363 @@ body {
   color: var(--color-text-secondary);
 
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.mural-page__empty-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-top: 18px;
+
+  padding: 9px 14px;
+
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+
+  background: var(--color-surface);
+  color: var(--color-text);
+
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.mural-page__empty-button:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--color-accent);
+  color: var(--color-primary);
+}
+
+.mural-page__empty-button:active {
+  transform: scale(0.97);
+}
+
+/* =========================
+   MODO OSCURO
+   ========================= */
+
+[data-theme="dark"] .mural-page__empty-button {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .mural-page__empty-button:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+
+
+
+/* =========================
+   ARCHIVOS ADJUNTOS
+   ========================= */
+
+.post-card__attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.post-card__attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-muted);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.post-card__attachment:hover {
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+}
+
+.post-card__attachment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-primary);
+  transition: transform 0.2s ease;
+}
+
+.post-card__attachment-icon:hover {
+  animation: downloadBounce 0.8s ease-in-out infinite;
+}
+
+@keyframes downloadBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(3px) scaleY(0.9);
+  }
+}
+
+.post-card__attachment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+  color: var(--color-text);
+}
+
+.post-card__attachment-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.post-card__attachment-info span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.post-card__attachment-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.post-card__attachment-open,
+.post-card__attachment-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.post-card__attachment-open:hover,
+.post-card__attachment-download:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--color-accent);
+  color: var(--color-primary);
+}
+
+/* =========================
+   VISTA PREVIA DE IMAGEN
+   ========================= */
+
+.create-post-modal__preview {
+  position: relative;
+}
+
+.create-post-modal__remove-image {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* =========================
+   ADJUNTOS - MODAL
+   ========================= */
+
+.create-post-modal__attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.create-post-modal__attachment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.create-post-modal__attachment > svg {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.create-post-modal__attachment > div {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.create-post-modal__attachment strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.create-post-modal__attachment span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.create-post-modal__attachment button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.create-post-modal__attachment button:hover {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+
+.create-post-modal__attachment button:active {
+  transform: scale(0.94);
+}
+
+/* =========================
+   MODO OSCURO
+   ========================= */
+
+[data-theme="dark"] .post-card__attachment {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .post-card__attachment:hover {
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+}
+
+[data-theme="dark"] .post-card__attachment-icon {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .post-card__attachment-open,
+[data-theme="dark"] .post-card__attachment-download {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .post-card__attachment-open:hover,
+[data-theme="dark"] .post-card__attachment-download:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width: 640px) {
+  .post-card__attachment {
+    padding: 10px;
+    gap: 9px;
+  }
+
+  .post-card__attachment-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .post-card__attachment-actions {
+    gap: 4px;
+  }
+
+  .post-card__attachment-open,
+  .post-card__attachment-download {
+    padding: 7px;
+  }
+
+  .post-card__attachment-open span,
+  .post-card__attachment-download span {
+    display: none;
+  }
 }
 .mural-page__clear-filters {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+
   height: 40px;
   padding: 0 12px;
+
   border: 1px solid var(--color-border);
   border-radius: 10px;
+
   background: var(--color-surface);
   color: var(--color-text-secondary);
+
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
+
   cursor: pointer;
   white-space: nowrap;
+
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
@@ -5083,43 +5486,13 @@ body {
 }
 
 [data-theme="dark"] .mural-page__clear-filters {
+  background: var(--color-surface);
   color: var(--color-text-secondary);
+  border-color: var(--color-border);
 }
 
 [data-theme="dark"] .mural-page__clear-filters:hover {
   background: var(--color-surface-muted);
   border-color: var(--color-accent);
   color: var(--color-accent);
-}
-
-
-.mural-page__search-clear {
-  display: inline-flex;
-  align-items: center;
-
-  gap: 8px;
-
-  flex-shrink: 0;
-
-  padding: 10px 14px;
-
-  border: 0;
-  border-radius: 10px;
-
-  background: var(--color-primary);
-  color: var(--color-surface);
-
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-
-  cursor: pointer;
-
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.mural-page__search-clear:hover {
-  background: var(--color-primary-dark);
 }

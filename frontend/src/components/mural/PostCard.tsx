@@ -5,9 +5,17 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash2,
+  FileText,
+  FileSpreadsheet,
+  FileArchive,
+  Presentation,
+  File,
+  ExternalLink,
+  Download,
 } from "lucide-react";
 import simboloClaro from "../../assets/brand/simbolo_oscuro.png";
 import simboloOscuro from "../../assets/brand/simbolo_claro.png";
+import type { PostAttachment } from "./CreatePostModal";
 
 type PostAudience = "all" | "campaign" | "area" | "country";
 
@@ -23,6 +31,7 @@ interface PostCardProps {
   link?: string;
   audience?: PostAudience;
   audienceValue?: string;
+  attachments?: PostAttachment[];
   isDarkMode: boolean;
   isAdmin?: boolean;
   onEdit?: () => void;
@@ -30,6 +39,30 @@ interface PostCardProps {
 }
 
 const MAX_CONTENT_LENGTH = 220;
+const getAttachmentIcon =(fileName: string) =>{
+  const extesion = fileName
+    .split(".")
+    .pop()
+    ?.toLowerCase();
+  switch (extesion){
+    case "pdf":
+    case "doc":
+    case "docx":
+    case "txt":
+      return <FileText size={20} />;
+
+    case "xls":
+    case "xlsx":
+      return <FileSpreadsheet size={20} />
+    case "ppt":
+    case "pptx":
+      return <Presentation size ={20} />
+    case " zip":
+      return<FileArchive size={20} />
+    default:
+      return <File size={20} />
+  }
+};
 
 function PostCard({
   title,
@@ -42,6 +75,7 @@ function PostCard({
   link,
   audience = "all",
   audienceValue,
+  attachments,
   isDarkMode,
   isAdmin = false,
   onEdit,
@@ -205,7 +239,57 @@ function PostCard({
           </a>
         </div>
       )}
+      {attachments && attachments.length > 0 && (
+  <div className="post-card__attachments">
+    {attachments.map((attachment) => (
+      <div
+        key={attachment.id}
+        className="post-card__attachment"
+      >
+        <div className="post-card__attachment-icon">
+          {getAttachmentIcon(attachment.name)}
+        </div>
 
+        <div className="post-card__attachment-info">
+          <strong title={attachment.name}>
+            {attachment.name}
+          </strong>
+
+          <span>
+            {attachment.size < 1024 * 1024
+              ? `${(attachment.size / 1024).toFixed(1)} KB`
+              : `${(attachment.size / (1024 * 1024)).toFixed(1)} MB`}
+          </span>
+        </div>
+
+        <div className="post-card__attachment-actions">
+          <a
+            href={attachment.dataUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="post-card__attachment-open"
+            aria-label={`Abrir ${attachment.name}`}
+            title="Abrir archivo"
+          >
+            <ExternalLink size={16} />
+            <span>Abrir</span>
+          </a>
+
+          <a
+            href={attachment.dataUrl}
+            download={attachment.name}
+            className="post-card__attachment-download"
+            aria-label={`Descargar ${attachment.name}`}
+            title="Descargar archivo"
+          >
+            <Download size={16} />
+            <span>Descargar</span>
+          </a>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
       <footer className="post-card__footer">
         <button
           type="button"
