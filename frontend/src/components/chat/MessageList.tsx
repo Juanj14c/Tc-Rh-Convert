@@ -4,7 +4,7 @@ import {
   FileText,
 } from "lucide-react";
 
-import type { Conversation } from "./conversationData";
+import type { ChatMode,Conversation } from "./conversationData";
 
 export interface MessageAttachment {
   type: "image" | "file";
@@ -35,6 +35,7 @@ interface MessageListProps {
   conversation: Conversation | null;
   messages: Message[];
   isAdmin: boolean;
+  chatMode : ChatMode;
   onReply: (message: Message) => void;
 }
 
@@ -96,22 +97,31 @@ function formatFileSize(bytes: number) {
 function getReplyLabel(
   sender: "employee" | "tyc",
   isAdmin: boolean,
+  chatMode: ChatMode,
 ) {
   const ownSender = isAdmin
     ? "tyc"
     : "employee";
 
-  return sender === ownSender
-    ? "Tu mensaje"
-    : isAdmin
+  if (sender === ownSender) {
+    return "Tu mensaje";
+  }
+
+  if (chatMode === "anonymous") {
+    return isAdmin
       ? "Caso anónimo"
       : "T&C";
-}
+  }
 
+  return isAdmin
+    ? "Empleado"
+    : "T&C";
+}
 function MessageList({
   conversation,
   messages,
   isAdmin,
+  chatMode,
   onReply,
 }: MessageListProps) {
   const messagesEndRef =
@@ -211,6 +221,7 @@ function MessageList({
                                 .replyTo
                                 .sender,
                               isAdmin,
+                              chatMode,
                             )}
                           </span>
 

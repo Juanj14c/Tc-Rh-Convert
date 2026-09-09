@@ -9,7 +9,7 @@ import CreatePostModal, {
 
 import PostCard from "../components/mural/PostCard";
 import { useTheme } from "../contexts/useTheme";
-
+import ConfirmModal  from "../components/common/confirmModa"
 interface MuralPageProps {
   isAdmin?: boolean;
   searchTerm?: string;
@@ -82,6 +82,8 @@ function MuralPage({
 
   const [editingPost, setEditingPost] = useState<Post | null>(null);
 
+  const [postTodelete, setPostTodelete] = useState<Post | null>(null); 
+
   const [countryFilter, setCountryFilter] = useState("all");
 
   const [areaFilter, setAreaFilter] = useState("all");
@@ -137,18 +139,29 @@ function MuralPage({
   };
 
   const handleDeletePost = (postId: number) => {
-    const confirmed = window.confirm(
-      "¿Estás seguro de que quieres eliminar esta publicación?",
+    const post = posts.find(
+      (currentPost) => currentPost.id === postId,
     );
 
-    if (!confirmed) {
+    if (!post) {
       return;
     }
 
-    setPosts((currentPosts) =>
-      currentPosts.filter((post) => post.id !== postId),
-    );
+    setPostTodelete(post);
+  
+    
   };
+  const handleConfrimDelete = () =>{
+    if (!postTodelete){
+      return;
+    }
+    setPosts ((currentPosts)=>
+    currentPosts.filter(
+      (post) => post.id !== postTodelete.id,
+    ),
+    );
+    setPostTodelete(null)
+  }
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -346,7 +359,17 @@ function MuralPage({
             : undefined
         }
       />
-    </section>
+
+      <ConfirmModal
+      isOpen= {postTodelete !== null}
+      title="Eliminar publicación"
+      message = "¿Estás seguro de que deseas eliminar esta publicación? Esta acción no se puede deshacer."
+      confirmText="Eliminar"
+      cancelText="Cancelar"
+      onConfirm={handleConfrimDelete}
+      onCancel={()=> setPostTodelete(null)}
+      />  
+      </section>
   );
 }
 

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+
 import Header from "../components/layout/Header";
 import MobileMenu from "../components/layout/MobileMenu";
 import Sidebar from "../components/layout/Sidebar";
+import type { AppPage } from "../types/navigation";
 
-type AppPage = "mural" | "chat" | "settings";
 
 interface UserProfile {
   name: string;
@@ -33,20 +34,22 @@ function MainLayout({
   searchTerm,
   onSearchChange,
 }: MainLayoutProps) {
-  
   const [isMobileMenuOpen, setIsMobileMenuOpen] =
     useState(false);
 
-  
-    const handleToggleMobileMenu = () => {
+  const handleToggleMobileMenu = () => {
     setIsMobileMenuOpen((current) => !current);
   };
 
-  const handleMobileNavigate = (page: AppPage) => {
+  const handleMobileNavigate = (
+    page: AppPage,
+  ) => {
     onNavigate(page);
     setIsMobileMenuOpen(false);
   };
-  
+
+  const showHeaderSearch =
+    activePage === "mural";
 
   return (
     <div className="app-layout">
@@ -67,11 +70,13 @@ function MainLayout({
       <div className="app-main">
         <Header
           onLogout={onLogout}
-          onSettings={() => onNavigate("settings")}
+          onSettings={() =>
+            onNavigate("settings")
+          }
           profile={profile}
           searchTerm={searchTerm}
           onSearchChange={onSearchChange}
-          showSearch={activePage !== "chat"}
+          showSearch={showHeaderSearch}
         />
 
         <main className="app-content">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
-import type { Conversation } from "./conversationData";
+import type { ChatMode, Conversation } from "./conversationData";
 
 import type {
   Message,
@@ -17,6 +17,7 @@ interface ChatWindowProps {
   conversation: Conversation | null;
   messages: Message[];
   isAdmin: boolean;
+  chatMode : ChatMode;
   onSendMessage: (
     text: string,
     attachment?: MessageAttachment,
@@ -29,6 +30,7 @@ function ChatWindow({
   conversation,
   messages,
   isAdmin,
+  chatMode,
   onSendMessage,
   onBackToConversations,
 }: ChatWindowProps) {
@@ -74,6 +76,7 @@ function ChatWindow({
 
       <ChatHeader
         conversation={conversation}
+        chatMode ={chatMode}
       />
 
       <div className="chat-window__messages-area">
@@ -82,12 +85,14 @@ function ChatWindow({
           messages={messages}
           isAdmin={isAdmin}
           onReply={handleReply}
+          chatMode = {chatMode}
         />
       </div>
 
       <MessageComposer
         disabled={!conversation}
         isAdmin={isAdmin}
+        chatMode={chatMode}
         replyTo={replyTo}
         onCancelReply={() =>
           setReplyTo(null)

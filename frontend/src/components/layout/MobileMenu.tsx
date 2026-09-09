@@ -8,13 +8,14 @@ import {
   Sun,
   Users,
   X,
+  Megaphone,
 } from "lucide-react";
 
 import logoClaro from "../../assets/brand/logo_horizontal_oscuro.png";
 import logoOscuro from "../../assets/brand/logo_horizontal_blanco.png";
 import { useTheme } from "../../contexts/useTheme";
+import type { AppPage } from "../../types/navigation";
 
-type AppPage = "mural" | "chat" | "settings";
 interface MobileMenuProps {
   isOpen: boolean;
   isAdmin?: boolean;
@@ -51,15 +52,24 @@ function MobileMenu({
       )}
 
       {isOpen && (
-        <div className="mobile-menu__overlay" onClick={onToggle}>
+        <div
+          className="mobile-menu__overlay"
+          onClick={onToggle}
+        >
           <aside
             className="mobile-menu"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             <div className="mobile-menu__header">
               <div className="mobile-menu__brand">
                 <img
-                  src={isDarkMode ? logoOscuro : logoClaro}
+                  src={
+                    isDarkMode
+                      ? logoOscuro
+                      : logoClaro
+                  }
                   alt="Convertia"
                   className="sidebar__logo-image"
                 />
@@ -76,6 +86,7 @@ function MobileMenu({
             </div>
 
             <nav className="mobile-menu__nav">
+            
               <button
                 type="button"
                 className={`mobile-menu__item ${
@@ -83,30 +94,70 @@ function MobileMenu({
                     ? "mobile-menu__item--active"
                     : ""
                 }`}
-                onClick={() => handleNavigate("mural")}
+                onClick={() =>
+                  handleNavigate("mural")
+                }
               >
                 <Home size={20} />
                 <span>Mural</span>
               </button>
 
+              
               <button
                 type="button"
                 className={`mobile-menu__item ${
-                  activePage === "chat"
+                  activePage ===
+                  "anonymous-chat"
                     ? "mobile-menu__item--active"
                     : ""
                 }`}
-                onClick={() => handleNavigate("chat")}
+                onClick={() =>
+                  handleNavigate(
+                    "anonymous-chat",
+                  )
+                }
               >
-                <MessageCircle size={20} />
+                <Megaphone size={20} />
                 <span>T&C</span>
               </button>
 
+              
+              <button
+                type="button"
+                className={`mobile-menu__item ${
+                  activePage ===
+                  "internal-chat"
+                    ? "mobile-menu__item--active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleNavigate(
+                    "internal-chat",
+                  )
+                }
+              >
+                <MessageCircle size={20} />
+                <span>
+                  CyC
+                </span>
+              </button>
+
+              
               {isAdmin && (
                 <>
                   <button
                     type="button"
-                    className="mobile-menu__item"
+                    className={`mobile-menu__item ${
+                      activePage ===
+                      "evaluations"
+                        ? "mobile-menu__item--active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      handleNavigate(
+                        "evaluations",
+                      )
+                    }
                   >
                     <ClipboardList size={20} />
                     <span>Evaluaciones</span>
@@ -114,7 +165,14 @@ function MobileMenu({
 
                   <button
                     type="button"
-                    className="mobile-menu__item"
+                    className={`mobile-menu__item ${
+                      activePage === "reports"
+                        ? "mobile-menu__item--active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      handleNavigate("reports")
+                    }
                   >
                     <BarChart3 size={20} />
                     <span>Reportes</span>
@@ -122,7 +180,17 @@ function MobileMenu({
 
                   <button
                     type="button"
-                    className="mobile-menu__item"
+                    className={`mobile-menu__item ${
+                      activePage ===
+                      "employees"
+                        ? "mobile-menu__item--active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      handleNavigate(
+                        "employees",
+                      )
+                    }
                   >
                     <Users size={20} />
                     <span>Empleados</span>
@@ -132,26 +200,34 @@ function MobileMenu({
             </nav>
 
             <div className="mobile-menu__bottom">
-        <button
-          type="button"
-          className={`mobile-menu__item ${
-            activePage === "settings"
-              ? "mobile-menu__item--active"
-              : ""
-          }`}
-          onClick={() => handleNavigate("settings")}
-        >
-          <Settings size={20} />
-          <span>Configuración</span>
-        </button>
+              
+              <button
+                type="button"
+                className={`mobile-menu__item ${
+                  activePage === "settings"
+                    ? "mobile-menu__item--active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleNavigate("settings")
+                }
+              >
+                <Settings size={20} />
+                <span>Configuración</span>
+              </button>
+
+              {/* TEMA */}
               <button
                 type="button"
                 className="mobile-menu__item"
                 onClick={toggleTheme}
               >
                 <Sun size={20} />
+
                 <span>
-                  {isDarkMode ? "Modo claro" : "Modo oscuro"}
+                  {isDarkMode
+                    ? "Modo claro"
+                    : "Modo oscuro"}
                 </span>
               </button>
             </div>

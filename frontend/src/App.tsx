@@ -12,13 +12,11 @@ import MuralPage from "./pages/MuralPage";
 import SettingsPage from "./pages/SettingsPage";
 
 import IntroAnimation from "./components/layout/IntroAnimation";
-
+import EmployeesPage  from "./pages/EmployeesPage";
+import type { AppPage } from "./types/navigation";
 type UserRole = "admin" | "employee";
 
-type AppPage =
-  | "mural"
-  | "chat"
-  | "settings";
+
 
 type AuthView =
   | "login"
@@ -133,17 +131,33 @@ function App() {
           isAdmin={userRole === "admin"}
           searchTerm={searchTerm}
         />
-      ) : activePage === "chat" ? (
+      ) : activePage === "anonymous-chat" ? (
         <ChatPage
+        key="anonymous-chat"
           isAdmin={userRole === "admin"}
+          chatMode="anonymous"
         />
-      ) : (
+      ): activePage === "internal-chat" ?(
+        <ChatPage
+        key="internal-chat"
+        isAdmin={userRole ==="admin"}
+        chatMode="internal"
+        />
+      
+      ) : activePage === "settings" ?( 
         <SettingsPage
           isAdmin={userRole === "admin"}
           profile={profile}
           onProfileChange={setProfile}
         />
-      )}
+      ): activePage ==="employees" ?(
+        <EmployeesPage />
+        
+      ):(
+        <div>
+          <h1>Página en construcción</h1>
+        </div>
+        )}
     </MainLayout>
   );
 }

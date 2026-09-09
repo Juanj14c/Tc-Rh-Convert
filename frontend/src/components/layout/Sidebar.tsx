@@ -6,13 +6,13 @@ import {
   Settings,
   Sun,
   Users,
+  Megaphone,
 } from "lucide-react";
 
 import logoClaro from "../../assets/brand/logo_horizontal_oscuro.png";
 import logoOscuro from "../../assets/brand/logo_horizontal_blanco.png";
 import { useTheme } from "../../contexts/useTheme";
-
-type AppPage = "mural" | "chat" | "settings";
+import type { AppPage } from "../../types/navigation";
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -54,37 +54,71 @@ function Sidebar({
         <button
           type="button"
           className={`sidebar__item ${
-            activePage === "chat"
+            activePage === "anonymous-chat"
               ? "sidebar__item--active"
               : ""
           }`}
-          onClick={() => onNavigate("chat")}
+          onClick={() => onNavigate("anonymous-chat")}
         >
-          <MessageCircle size={20} />
+          <Megaphone size={20} />
           <span>T&C</span>
         </button>
 
+        <button 
+        type="button"
+        className={`sidebar__item ${
+          activePage === "internal-chat"
+          ? "sidebar__item--active"
+          : ""
+          }`}
+          onClick={() =>
+            onNavigate("internal-chat")
+          }
+        >
+          <MessageCircle size ={20} />
+          <span>CyC</span>
+        </button>
         {isAdmin && (
           <>
             <button
               type="button"
-              className="sidebar__item"
+              className={`sidebar__item ${
+                activePage === "evaluations"
+                  ? "sidebar__item--active"
+                  : ""
+              }`}
+              onClick={() =>
+                onNavigate("evaluations")
+              }
             >
               <ClipboardList size={20} />
               <span>Evaluaciones</span>
             </button>
 
-            <button
+             <button
               type="button"
-              className="sidebar__item"
+              className={`sidebar__item ${
+                activePage === "reports"
+                  ? "sidebar__item--active"
+                  : ""
+              }`}
+              onClick={() =>
+                onNavigate("reports")
+              }
             >
               <BarChart3 size={20} />
               <span>Reportes</span>
             </button>
-
-            <button
+         <button
               type="button"
-              className="sidebar__item"
+              className={`sidebar__item ${
+                activePage === "employees"
+                  ? "sidebar__item--active"
+                  : ""
+              }`}
+              onClick={() =>
+                onNavigate("employees")
+              }
             >
               <Users size={20} />
               <span>Empleados</span>

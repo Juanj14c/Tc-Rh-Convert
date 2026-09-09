@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState} from "react";
 
 import ConversationSidebar from "./ConversationSidebar";
 
 import {
   conversations,
+  internalConversations,
+  type ChatMode,
   type Conversation,
 } from "./conversationData";
 
@@ -15,10 +17,14 @@ import type {
   MessageReply,
 } from "./MessageList";
 
-import { messagesByConversation } from "./messageData";
+import {
+  messagesByConversation,
+  internalMessagesByConversation,
+} from "./messageData";
 
 interface ChatLayoutProps {
   isAdmin: boolean;
+  chatMode: ChatMode;
 }
 
 function getLocalDateString(date: Date) {
@@ -37,32 +43,31 @@ function getLocalDateString(date: Date) {
 
 function ChatLayout({
   isAdmin,
+  chatMode,
 }: ChatLayoutProps) {
-  /*
-   * Admin:
-   * comienza viendo la lista de conversaciones.
-   *
-   * Empleado:
-   * entra directamente a su conversación.
-   */
+  const availableConversations =
+    chatMode === "anonymous"
+      ? conversations
+      : internalConversations;
+
+  const availableMessages =
+    chatMode === "anonymous"
+      ? messagesByConversation
+      : internalMessagesByConversation;
+
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(
-      isAdmin ? null : conversations[0],
+      isAdmin
+        ? null
+        : availableConversations[0],
     );
 
-  /*
-   * En móvil:
-   * false = lista
-   * true  = chat
-   *
-   * Para empleado siempre inicia en true.
-   */
   const [isMobileChatOpen, setIsMobileChatOpen] =
     useState(!isAdmin);
 
   const [messagesById, setMessagesById] =
     useState<Record<number, Message[]>>(
-      messagesByConversation,
+      availableMessages,
     );
 
   const handleSendMessage = (
@@ -106,7 +111,6 @@ function ChatLayout({
         ...(current[
           selectedConversation.id
         ] ?? []),
-
         newMessage,
       ],
     }));
@@ -117,10 +121,6 @@ function ChatLayout({
   ) => {
     setSelectedConversation(conversation);
 
-    /*
-     * En móvil, al seleccionar una conversación
-     * pasamos de la lista al chat.
-     */
     if (isAdmin) {
       setIsMobileChatOpen(true);
     }
@@ -157,6 +157,7 @@ function ChatLayout({
     <div className={layoutClass}>
       {isAdmin && (
         <ConversationSidebar
+          conversations={availableConversations}
           selectedConversationId={
             selectedConversation?.id ?? null
           }
@@ -170,6 +171,7 @@ function ChatLayout({
         conversation={selectedConversation}
         messages={selectedMessages}
         isAdmin={isAdmin}
+        chatMode={chatMode}
         onSendMessage={
           handleSendMessage
         }

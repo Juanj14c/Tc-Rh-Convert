@@ -65,3 +65,72 @@ export const messagesByConversation: Record<number, Message[]> = {
     },
   ],
 };
+export const internalMessagesByConversation: Record<
+  number,
+  Message[]
+> = {
+  101: [
+    {
+      id: 1011,
+      sender: "employee",
+      text: "Hola, ¿me puedes ayudar con una consulta?",
+      time: "11:02",
+      date: "2026-09-08",
+      status: "read",
+    },
+    {
+      id: 1012,
+      sender: "tyc",
+      text: "Claro, dime qué necesitas.",
+      time: "11:04",
+      date: "2026-09-08",
+      status: "read",
+    },
+    {
+      id: 1013,
+      sender: "employee",
+      text: "Quería confirmar la información de mi campaña.",
+      time: "11:05",
+      date: "2026-09-08",
+      status: "sent",
+    },
+  ],
+
+  102: [
+    {
+      id: 1021,
+      sender: "employee",
+      text: "Hola María, te envié la información.",
+      time: "10:25",
+      date: "2026-09-08",
+      status: "delivered",
+    },
+    {
+      id: 1022,
+      sender: "tyc",
+      text: "Perfecto, muchas gracias.",
+      time: "10:32",
+      date: "2026-09-08",
+      status: "delivered",
+    },
+  ],
+
+  103: [
+    {
+      id: 1031,
+      sender: "employee",
+      text: "¿Ya tenemos confirmación?",
+      time: "16:18",
+      date: "2026-09-07",
+      status: "read",
+    },
+    {
+      id: 1032,
+      sender: "tyc",
+      text: "Sí, quedó confirmado.",
+      time: "16:25",
+      date: "2026-09-07",
+      status: "read",
+    },
+  ],
+};
