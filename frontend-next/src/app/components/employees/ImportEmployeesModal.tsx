@@ -298,18 +298,19 @@ function ImportEmployeesModal({
             "country",
             "pais",
             "país",
-            "country name",
+            "country name", 
+            "centro de trabajo"
           ],
         );
 
         const workCenter =
           getValue(
-            row,
+            row,  
             [
-              "work center",
+              "work center", 
               "workcenter",
               "centro de trabajo",
-              "centro trabajo",
+              "centro trabajo", 
             ],
           );
 

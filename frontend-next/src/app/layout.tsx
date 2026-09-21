@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { ThemeProvider } from "@/contexts/ThemeProvider";
+import SileoProvider from "@/components/common/SileoProvider";
 
 export const metadata: Metadata = {
   title: "Tc&Rh Convert",
-  description: "Plataforma interna de Tc&Rh Convert",
+  description:
+    "Plataforma interna de Tc&Rh Convert",
 };
 
 export default function RootLayout({
@@ -17,7 +19,9 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <ThemeProvider>
-          {children}
+          <SileoProvider>
+            {children}
+          </SileoProvider>
         </ThemeProvider>
       </body>
     </html>

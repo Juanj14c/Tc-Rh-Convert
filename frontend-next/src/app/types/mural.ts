@@ -15,8 +15,16 @@ export interface PostAttachment {
 export interface NewPost {
   title: string;
   content: string;
+
+  // Tipo de segmentación principal
   audience: PostAudience;
   audienceValue?: string;
+
+  // Segmentación detallada
+  country?: string;
+  area?: string;
+  campaign?: string;
+
   image?: string;
   link?: string;
   attachments?: PostAttachment[];
@@ -29,10 +37,18 @@ export interface Post {
   author: string;
   date: string;
   likes: number;
-  dislikes: number;
+  dislikes: number
+  
   image?: string;
+
+  // Tipo de segmentación principal
   audience?: PostAudience;
-  audienceValue?: string;
+ audienceValue?: string;
+  // Segmentación detallada
+  country?: string;
+  area?: string;
+  campaign?: string;
+
   link?: string;
   attachments?: PostAttachment[];
 }

@@ -1,5 +1,12 @@
 import type { Post } from "@/types/mural";
 
+export interface MuralCampaign {
+  id: string;
+  name: string;
+  country: string;
+  site?: string;
+}
+
 export const initialPosts: Post[] = [
   {
     id: 1,
@@ -31,6 +38,7 @@ export const muralCountries = [
   "Colombia",
   "México",
   "España",
+  "Chile",
 ];
 
 export const muralAreas = [
@@ -40,8 +48,32 @@ export const muralAreas = [
   "Servicio al Cliente",
 ];
 
-export const muralCampaigns = [
-  "Campaña A",
-  "Campaña B",
-  "Campaña C",
+export const muralCampaigns: MuralCampaign[] = [
+  {
+    id: "wom-chile",
+    name: "WOM Chile",
+    country: "Chile",
+    site: "Chile",
+  },
+  {
+    id: "campana-colombia-1",
+    name: "Campaña Colombia 1",
+    country: "Colombia",
+  },
+  {
+    id: "campana-colombia-2",
+    name: "Campaña Colombia 2",
+    country: "Colombia",
+  },
+  {
+    id: "campana-mexico-1",
+    name: "Campaña México 1",
+    country: "México",
+    
+  },
+  {
+    id: "campana-espana-1",
+    name: "Campaña España 1",
+    country: "España",
+  },
 ];

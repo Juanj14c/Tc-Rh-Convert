@@ -1,25 +1,19 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import MainLayout from "@/components/layout/MainLayout";
+import { type ReactNode } from "react";
 
-interface UserProfile {
-  name: string;
-  email: string;
-  image: string;
+import MainLayout from "@/components/layout/MainLayout";
+import { ProfileProvider } from "@/contexts/profileContext";
+import { useProfile } from "@/hooks/useProfile";
+import QuickTipNotifier from "@/components/quickTips/QuickTipNotifier";
+import { SearchProvider } from "@/contexts/SearchContext";
+
+interface AppLayoutProps {
+  children: ReactNode;
 }
 
-export default function AppLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [profile, setProfile] =
-    useState<UserProfile>({
-      name: "Juan Pérez",
-      email: "juan@empresa.com",
-      image: "",
-    });
+function AppLayoutContent({ children }: AppLayoutProps) {
+  const { profile, isAdmin } = useProfile();
 
   const handleLogout = () => {
     window.location.href = "/login";
@@ -27,13 +21,28 @@ export default function AppLayout({
 
   return (
     <MainLayout
-      isAdmin={true}
+      isAdmin={isAdmin}
       onLogout={handleLogout}
       profile={profile}
-      searchTerm=""
-      onSearchChange={() => {}}
+     
     >
       {children}
     </MainLayout>
+  );
+}
+
+export default function AppLayout({
+  children,
+}: AppLayoutProps) {
+  return (
+    <ProfileProvider>
+      <SearchProvider >
+      <QuickTipNotifier />
+
+      <AppLayoutContent>
+        {children}
+      </AppLayoutContent>
+      </SearchProvider>
+    </ProfileProvider>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 interface IntroAnimationProps {
   onComplete: () => void;
 }
@@ -7,23 +9,30 @@ interface IntroAnimationProps {
 export default function IntroAnimation({
   onComplete,
 }: IntroAnimationProps) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      onComplete();
+    }, 3500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [onComplete]);
+
   return (
-    <div
-      className="intro-animation"
-      role="status"
-      aria-label="Cargando plataforma"
-      onAnimationEnd={onComplete}
-    >
+    <div className="intro-animation">
       <div className="intro-animation__glow" />
 
       <div className="intro-animation__brand">
-        <img
-          src="/assets/brand/simbolo_claro.png"
-          alt="Logo de la empresa"
-          className="intro-animation__logo-image"
-        />
+        <div className="intro-animation__logo">
+          <img
+            src="/assets/brand/simbolo_claro.png"
+            alt="Convertia"
+            className="intro-animation__logo-image"
+          />
+        </div>
 
-        <span>Tc&Rh Convert</span>
+        <span>Bienvenido a T&amp;C RH</span>
       </div>
     </div>
   );

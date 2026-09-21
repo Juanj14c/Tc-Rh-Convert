@@ -89,10 +89,24 @@ export default function CreatePostModal({
       initialPost?.audience ?? "all",
     );
 
-  const [audienceValue, setAudienceValue] =
-    useState(
-      initialPost?.audienceValue ?? "",
-    );
+  const [country, setCountry] = useState(
+    initialPost?.audience === "country" ||
+      initialPost?.audience === "campaign"
+      ? initialPost?.audienceValue ?? ""
+      : "",
+  );
+
+  const [area, setArea] = useState(
+    initialPost?.audience === "area"
+      ? initialPost?.audienceValue ?? ""
+      : "",
+  );
+
+  const [campaign, setCampaign] = useState(
+    initialPost?.audience === "campaign"
+      ? initialPost?.audienceValue ?? ""
+      : "",
+  );
 
   const [imageFile, setImageFile] =
     useState<File | null>(null);
@@ -135,6 +149,26 @@ export default function CreatePostModal({
     setIsCountryOpen(false);
   };
 
+  /**
+   * Las campañas vienen como objetos:
+   * {
+   *   name: string;
+   *   country: string;
+   * }
+   *
+   * CustomSelect necesita string[],
+   * por eso aquí filtramos por país
+   * y luego convertimos a nombres.
+   */
+  const campaignOptions = country
+    ? muralCampaigns
+        .filter(
+          (item) =>
+            item.country === country,
+        )
+        .map((item) => item.name)
+    : [];
+
   const handleImageChange = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -165,6 +199,8 @@ export default function CreatePostModal({
     };
 
     reader.readAsDataURL(file);
+
+    event.target.value = "";
   };
 
   const handleAttachmentChange = (
@@ -189,13 +225,18 @@ export default function CreatePostModal({
         ?.toLowerCase()}`;
 
       const isValidType =
-        ALLOWED_ATTACHMENT_TYPES.includes(file.type) ||
-        ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension);
+        ALLOWED_ATTACHMENT_TYPES.includes(
+          file.type,
+        ) ||
+        ALLOWED_ATTACHMENT_EXTENSIONS.includes(
+          extension,
+        );
 
       if (!isValidType) {
         setAttachmentError(
           `El archivo "${file.name}" no es un tipo permitido.`,
         );
+
         continue;
       }
 
@@ -203,6 +244,7 @@ export default function CreatePostModal({
         setAttachmentError(
           `El archivo "${file.name}" supera el límite de 10 MB.`,
         );
+
         continue;
       }
 
@@ -271,7 +313,9 @@ export default function CreatePostModal({
     ).toFixed(1)} MB`;
   };
 
-  const handleAudienceChange = (value: string) => {
+  const handleAudienceChange = (
+    value: string,
+  ) => {
     const audienceMap: Record<
       string,
       PostAudience
@@ -286,24 +330,39 @@ export default function CreatePostModal({
       audienceMap[value] ?? "all";
 
     setAudience(newAudience);
-    setAudienceValue("");
+
+    setCountry("");
+    setArea("");
+    setCampaign("");
 
     closeAllSelects();
   };
 
-  const handleCampaignChange = (value: string) => {
-    setAudienceValue(value);
+  const handleCampaignChange = (
+    value: string,
+  ) => {
+    setCampaign(value);
     setIsCampaignOpen(false);
   };
 
-  const handleAreaChange = (value: string) => {
-    setAudienceValue(value);
+  const handleAreaChange = (
+    value: string,
+  ) => {
+    setArea(value);
     setIsAreaOpen(false);
   };
 
-  const handleCountryChange = (value: string) => {
-    setAudienceValue(value);
+  const handleCountryChange = (
+    value: string,
+  ) => {
+    setCountry(value);
+
+    if (audience === "campaign") {
+      setCampaign("");
+    }
+
     setIsCountryOpen(false);
+    setIsCampaignOpen(false);
   };
 
   const toggleCampaignSelect = () => {
@@ -340,22 +399,63 @@ export default function CreatePostModal({
     }
 
     if (
-      audience !== "all" &&
-      !audienceValue
+      audience === "campaign" &&
+      (!country || !campaign)
     ) {
       return;
     }
+
+    if (
+      audience === "area" &&
+      !area
+    ) {
+      return;
+    }
+
+    if (
+      audience === "country" &&
+      !country
+    ) {
+      return;
+    }
+
+    const audienceValue =
+      audience === "campaign"
+        ? campaign
+        : audience === "area"
+          ? area
+          : audience === "country"
+            ? country
+            : undefined;
 
     onCreatePost({
       title: title.trim(),
       content: content.trim(),
       audience,
-      audienceValue:
-        audience === "all"
-          ? undefined
-          : audienceValue,
-      image: imagePreview || undefined,
-      link: link.trim() || undefined,
+      audienceValue,
+
+      country:
+        audience === "campaign" ||
+        audience === "country"
+          ? country || undefined
+          : undefined,
+
+      area:
+        audience === "area"
+          ? area || undefined
+          : undefined,
+
+      campaign:
+        audience === "campaign"
+          ? campaign || undefined
+          : undefined,
+
+      image:
+        imagePreview || undefined,
+
+      link:
+        link.trim() || undefined,
+
       attachments,
     });
 
@@ -365,11 +465,18 @@ export default function CreatePostModal({
   const handleClose = () => {
     setTitle("");
     setContent("");
+
     setAudience("all");
-    setAudienceValue("");
+
+    setCountry("");
+    setArea("");
+    setCampaign("");
+
     setImageFile(null);
     setImagePreview("");
+
     setLink("");
+
     setAttachments([]);
     setAttachmentError("");
 
@@ -422,7 +529,9 @@ export default function CreatePostModal({
                 type="text"
                 value={title}
                 onChange={(event) =>
-                  setTitle(event.target.value)
+                  setTitle(
+                    event.target.value,
+                  )
                 }
                 placeholder="Escribe el título de la publicación"
                 required
@@ -436,7 +545,9 @@ export default function CreatePostModal({
                 rows={5}
                 value={content}
                 onChange={(event) =>
-                  setContent(event.target.value)
+                  setContent(
+                    event.target.value,
+                  )
                 }
                 placeholder="Escribe el contenido que quieres compartir..."
                 required
@@ -485,21 +596,30 @@ export default function CreatePostModal({
                     title="Quitar imagen"
                   >
                     <X size={16} />
-                    <span>Quitar imagen</span>
+
+                    <span>
+                      Quitar imagen
+                    </span>
                   </button>
                 </div>
               )}
             </div>
 
             <div className="create-post-modal__field">
-              <span>Archivos adjuntos</span>
+              <span>
+                Archivos adjuntos
+              </span>
 
               <input
                 id="post-attachments"
                 type="file"
                 multiple
-                accept={ALLOWED_ATTACHMENT_EXTENSIONS.join(",")}
-                onChange={handleAttachmentChange}
+                accept={ALLOWED_ATTACHMENT_EXTENSIONS.join(
+                  ",",
+                )}
+                onChange={
+                  handleAttachmentChange
+                }
                 hidden
               />
 
@@ -515,7 +635,8 @@ export default function CreatePostModal({
               </label>
 
               <small>
-                PDF, Word, Excel, PowerPoint, TXT o ZIP.
+                PDF, Word, Excel,
+                PowerPoint, TXT o ZIP.
                 Máximo 10 MB por archivo.
               </small>
 
@@ -574,21 +695,29 @@ export default function CreatePostModal({
                 type="url"
                 value={link}
                 onChange={(event) =>
-                  setLink(event.target.value)
+                  setLink(
+                    event.target.value,
+                  )
                 }
                 placeholder="https://ejemplo.com"
               />
             </label>
 
             <div className="create-post-modal__field">
-              <span>Publicar para</span>
+              <span>
+                Publicar para
+              </span>
 
               <CustomSelect
                 options={audienceOptions}
-                value={audienceLabels[audience]}
+                value={
+                  audienceLabels[audience]
+                }
                 placeholder="Selecciona una opción"
                 isOpen={isAudienceOpen}
-                onChange={handleAudienceChange}
+                onChange={
+                  handleAudienceChange
+                }
                 onToggle={() =>
                   setIsAudienceOpen(
                     (current) => {
@@ -611,21 +740,65 @@ export default function CreatePostModal({
             </div>
 
             {audience === "campaign" && (
-              <div className="create-post-modal__field">
-                <span>Campaña</span>
+              <>
+                <div className="create-post-modal__field">
+                  <span>País</span>
 
-                <CustomSelect
-                  options={muralCampaigns}
-                  value={audienceValue}
-                  placeholder="Selecciona una campaña"
-                  isOpen={isCampaignOpen}
-                  onChange={handleCampaignChange}
-                  onToggle={toggleCampaignSelect}
-                  onClose={() =>
-                    setIsCampaignOpen(false)
-                  }
-                />
-              </div>
+                  <CustomSelect
+                    options={muralCountries}
+                    value={country}
+                    placeholder="Selecciona un país"
+                    isOpen={isCountryOpen}
+                    onChange={
+                      handleCountryChange
+                    }
+                    onToggle={
+                      toggleCountrySelect
+                    }
+                    onClose={() =>
+                      setIsCountryOpen(false)
+                    }
+                  />
+                </div>
+
+                {country && (
+                  <div className="create-post-modal__field">
+                    <span>
+                      Campaña
+                    </span>
+
+                    {campaignOptions.length > 0 ? (
+                      <CustomSelect
+                        options={
+                          campaignOptions
+                        }
+                        value={campaign}
+                        placeholder="Selecciona una campaña"
+                        isOpen={
+                          isCampaignOpen
+                        }
+                        onChange={
+                          handleCampaignChange
+                        }
+                        onToggle={
+                          toggleCampaignSelect
+                        }
+                        onClose={() =>
+                          setIsCampaignOpen(
+                            false,
+                          )
+                        }
+                      />
+                    ) : (
+                      <small>
+                        No hay campañas
+                        configuradas para
+                        este país todavía.
+                      </small>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {audience === "area" && (
@@ -634,11 +807,15 @@ export default function CreatePostModal({
 
                 <CustomSelect
                   options={muralAreas}
-                  value={audienceValue}
+                  value={area}
                   placeholder="Selecciona un área"
                   isOpen={isAreaOpen}
-                  onChange={handleAreaChange}
-                  onToggle={toggleAreaSelect}
+                  onChange={
+                    handleAreaChange
+                  }
+                  onToggle={
+                    toggleAreaSelect
+                  }
                   onClose={() =>
                     setIsAreaOpen(false)
                   }
@@ -652,11 +829,15 @@ export default function CreatePostModal({
 
                 <CustomSelect
                   options={muralCountries}
-                  value={audienceValue}
+                  value={country}
                   placeholder="Selecciona un país"
                   isOpen={isCountryOpen}
-                  onChange={handleCountryChange}
-                  onToggle={toggleCountrySelect}
+                  onChange={
+                    handleCountryChange
+                  }
+                  onToggle={
+                    toggleCountrySelect
+                  }
                   onClose={() =>
                     setIsCountryOpen(false)
                   }

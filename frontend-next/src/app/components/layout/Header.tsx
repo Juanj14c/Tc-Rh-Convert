@@ -13,6 +13,8 @@ import {
   useState,
 } from "react";
 
+import NotificationBell from "../notifications/NotificationBell";
+
 interface UserProfile {
   name: string;
   email: string;
@@ -86,7 +88,7 @@ export default function Header({
   return (
     <header className="header">
       {showSearch && (
-        <div className="mural-page__search">
+        <div className="header__search">
           <Search size={18} />
 
           <input
@@ -117,17 +119,7 @@ export default function Header({
       )}
 
       <div className="header__actions">
-        <button
-          type="button"
-          className="header__icon-button"
-          aria-label="Notificaciones"
-        >
-          <Bell size={20} />
-
-          <span className="header__notification-badge">
-            3
-          </span>
-        </button>
+        <NotificationBell />
 
         <div
           ref={userMenuRef}

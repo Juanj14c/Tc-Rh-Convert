@@ -14,6 +14,7 @@ import ConfirmModal from "@/components/common/ConfirmModal";
 import CustomSelect from "@/components/common/CustomSelect";
 
 import { useTheme } from "@/contexts/useTheme";
+import { useSearch } from "@/contexts/SearchContext";
 
 import {
   initialPosts,
@@ -29,6 +30,11 @@ import type {
 
 export default function MuralPage() {
   const { isDarkMode } = useTheme();
+
+  const {
+    searchTerm,
+    setSearchTerm,
+  } = useSearch();
 
   const [isCreatePostOpen, setIsCreatePostOpen] =
     useState(false);
@@ -51,11 +57,14 @@ export default function MuralPage() {
   const [campaignFilter, setCampaignFilter] =
     useState("all");
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
-
   const [openSelect, setOpenSelect] =
     useState("");
+
+  /*
+   * =========================
+   * SELECTS
+   * =========================
+   */
 
   const toggleSelect = (
     selectName: string,
@@ -86,6 +95,12 @@ export default function MuralPage() {
     setOpenSelect("");
   };
 
+  /*
+   * =========================
+   * CREAR PUBLICACIÓN
+   * =========================
+   */
+
   const handleCreatePost = (
     newPost: NewPost,
   ) => {
@@ -99,9 +114,11 @@ export default function MuralPage() {
       dislikes: 0,
       image: newPost.image,
       audience: newPost.audience,
-      audienceValue: newPost.audienceValue,
+      audienceValue:
+        newPost.audienceValue,
       link: newPost.link,
-      attachments: newPost.attachments,
+      attachments:
+        newPost.attachments,
     };
 
     setPosts((currentPosts) => [
@@ -111,6 +128,12 @@ export default function MuralPage() {
 
     setIsCreatePostOpen(false);
   };
+
+  /*
+   * =========================
+   * EDITAR PUBLICACIÓN
+   * =========================
+   */
 
   const handleEditPost = (
     post: Post,
@@ -134,7 +157,8 @@ export default function MuralPage() {
               content: updatedPost.content,
               image: updatedPost.image,
               link: updatedPost.link,
-              audience: updatedPost.audience,
+              audience:
+                updatedPost.audience,
               audienceValue:
                 updatedPost.audienceValue,
               attachments:
@@ -146,6 +170,12 @@ export default function MuralPage() {
 
     setEditingPost(null);
   };
+
+  /*
+   * =========================
+   * ELIMINAR PUBLICACIÓN
+   * =========================
+   */
 
   const handleDeletePost = (
     postId: number,
@@ -170,12 +200,19 @@ export default function MuralPage() {
     setPosts((currentPosts) =>
       currentPosts.filter(
         (post) =>
-          post.id !== postToDelete.id,
+          post.id !==
+          postToDelete.id,
       ),
     );
 
     setPostToDelete(null);
   };
+
+  /*
+   * =========================
+   * FILTRADO
+   * =========================
+   */
 
   const normalizedSearch =
     searchTerm.trim().toLowerCase();
@@ -205,25 +242,22 @@ export default function MuralPage() {
           );
 
       const matchesCountry =
-        countryFilter === "all" ||
-        post.audience === "all" ||
-        (post.audience === "country" &&
-          post.audienceValue ===
-            countryFilter);
+  countryFilter === "all" ||
+  (post.audience === "country" &&
+    post.audienceValue ===
+      countryFilter);
 
-      const matchesArea =
-        areaFilter === "all" ||
-        post.audience === "all" ||
-        (post.audience === "area" &&
-          post.audienceValue ===
-            areaFilter);
+const matchesArea =
+  areaFilter === "all" ||
+  (post.audience === "area" &&
+    post.audienceValue ===
+      areaFilter);
 
-      const matchesCampaign =
-        campaignFilter === "all" ||
-        post.audience === "all" ||
-        (post.audience === "campaign" &&
-          post.audienceValue ===
-            campaignFilter);
+const matchesCampaign =
+  campaignFilter === "all" ||
+  (post.audience === "campaign" &&
+    post.audienceValue ===
+      campaignFilter);
 
       return (
         matchesSearch &&
@@ -234,6 +268,12 @@ export default function MuralPage() {
     },
   );
 
+  /*
+   * =========================
+   * FILTROS ACTIVOS
+   * =========================
+   */
+
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
     countryFilter !== "all" ||
@@ -242,6 +282,7 @@ export default function MuralPage() {
 
   const handleClearFilters = () => {
     setSearchTerm("");
+
     setCountryFilter("all");
     setAreaFilter("all");
     setCampaignFilter("all");
@@ -250,6 +291,10 @@ export default function MuralPage() {
 
   return (
     <section className="mural-page">
+      {/* =========================
+          HEADER DEL MURAL
+         ========================= */}
+
       <div className="mural-page__heading">
         <div>
           <span className="mural-page__eyebrow">
@@ -265,9 +310,6 @@ export default function MuralPage() {
           </p>
         </div>
 
-        {/* Temporalmente visible para probar
-            las funciones de administración.
-            Luego vendrá desde Supabase. */}
         <button
           type="button"
           className="mural-page__create-button"
@@ -276,9 +318,15 @@ export default function MuralPage() {
           }
         >
           <Plus size={18} />
-          <span>Crear publicación</span>
+          <span>
+            Crear publicación
+          </span>
         </button>
       </div>
+
+      {/* =========================
+          FILTROS
+         ========================= */}
 
       <div className="mural-page__filters">
         <div className="mural-page__filter-group">
@@ -335,7 +383,9 @@ export default function MuralPage() {
           />
 
           <CustomSelect
-            options={muralCampaigns}
+            options={muralCampaigns.map(
+              (campaing)=> campaing.name,
+            )}
             value={
               campaignFilter === "all"
                 ? ""
@@ -376,54 +426,47 @@ export default function MuralPage() {
         </div>
       </div>
 
-      <div className="mural-page__search">
-        <Search size={17} />
-
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(event) =>
-            setSearchTerm(
-              event.target.value,
-            )
-          }
-          placeholder="Buscar publicaciones..."
-          aria-label="Buscar publicaciones"
-        />
-      </div>
+      {/* =========================
+          PUBLICACIONES
+         ========================= */}
 
       <div className="mural-page__feed">
-        {filteredPosts.map((post) => (
-          <PostCard
-            key={post.id}
-            id={post.id}
-            title={post.title}
-            content={post.content}
-            author={post.author}
-            date={post.date}
-            likes={post.likes}
-            dislikes={post.dislikes}
-            image={post.image}
-            link={post.link}
-            audience={post.audience}
-            audienceValue={
-              post.audienceValue
-            }
-            attachments={
-              post.attachments
-            }
-            isDarkMode={isDarkMode}
-            isAdmin={true}
-            onEdit={() =>
-              handleEditPost(post)
-            }
-            onDelete={() =>
-              handleDeletePost(post.id)
-            }
-          />
-        ))}
+        {filteredPosts.map(
+          (post) => (
+            <PostCard
+              key={post.id}
+              id={post.id}
+              title={post.title}
+              content={post.content}
+              author={post.author}
+              date={post.date}
+              likes={post.likes}
+              dislikes={post.dislikes}
+              image={post.image}
+              link={post.link}
+              audience={post.audience}
+              audienceValue={
+                post.audienceValue
+              }
+              attachments={
+                post.attachments
+              }
+              isDarkMode={isDarkMode}
+              isAdmin={true}
+              onEdit={() =>
+                handleEditPost(post)
+              }
+              onDelete={() =>
+                handleDeletePost(
+                  post.id,
+                )
+              }
+            />
+          ),
+        )}
 
-        {filteredPosts.length === 0 && (
+        {filteredPosts.length ===
+          0 && (
           <div className="mural-page__empty">
             <Search size={24} />
 
@@ -433,15 +476,21 @@ export default function MuralPage() {
             </h3>
 
             <p>
-              Prueba con otro término o
-              cambia los filtros.
+              Prueba con otro término
+              o cambia los filtros.
             </p>
           </div>
         )}
       </div>
 
+      {/* =========================
+          CREAR
+         ========================= */}
+
       <CreatePostModal
-        isOpen={isCreatePostOpen}
+        isOpen={
+          isCreatePostOpen
+        }
         onClose={() =>
           setIsCreatePostOpen(false)
         }
@@ -449,6 +498,10 @@ export default function MuralPage() {
           handleCreatePost
         }
       />
+
+      {/* =========================
+          EDITAR
+         ========================= */}
 
       <CreatePostModal
         key={
@@ -488,9 +541,14 @@ export default function MuralPage() {
         }
       />
 
+      {/* =========================
+          ELIMINAR
+         ========================= */}
+
       <ConfirmModal
         isOpen={
-          postToDelete !== null
+          postToDelete !==
+          null
         }
         title="Eliminar publicación"
         message="¿Estás seguro de que deseas eliminar esta publicación? Esta acción no se puede deshacer."

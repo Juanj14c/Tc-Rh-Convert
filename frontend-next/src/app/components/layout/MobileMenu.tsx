@@ -4,6 +4,7 @@ import {
   BarChart3,
   ClipboardList,
   Home,
+  Lightbulb,
   MessageCircle,
   Menu,
   Settings,
@@ -40,28 +41,39 @@ export default function MobileMenu({
   } = useTheme();
 
   const getActivePage = () => {
-    if (pathname.startsWith("/mural"))
+    if (pathname.startsWith("/mural")) {
       return "mural";
-    if (pathname.startsWith("/chat"))
+    }
+
+    /* IMPORTANTE:
+       /chat/internal debe revisarse ANTES de /chat */
+    if (pathname.startsWith("/chat/internal")) {
+      return "chat-internal";
+    }
+
+    if (pathname.startsWith("/chat")) {
       return "chat";
-    if (
-      pathname.startsWith("/employees")
-    )
+    }
+
+    if (pathname.startsWith("/employees")) {
       return "employees";
-    if (
-      pathname.startsWith("/settings")
-    )
+    }
+
+    if (pathname.startsWith("/quick-tips")) {
+      return "quick-tips";
+    }
+
+    if (pathname.startsWith("/settings")) {
       return "settings";
-    if (
-      pathname.startsWith("/reports")
-    )
+    }
+
+    if (pathname.startsWith("/reports")) {
       return "reports";
-    if (
-      pathname.startsWith(
-        "/evaluations",
-      )
-    )
+    }
+
+    if (pathname.startsWith("/evaluations")) {
       return "evaluations";
+    }
 
     return "";
   };
@@ -121,6 +133,10 @@ export default function MobileMenu({
             </div>
 
             <nav className="mobile-menu__nav">
+
+              {/* =========================
+                  MURAL
+                 ========================= */}
               <button
                 type="button"
                 className={`mobile-menu__item ${
@@ -136,6 +152,10 @@ export default function MobileMenu({
                 <span>Mural</span>
               </button>
 
+              {/* =========================
+                  T&C
+                  /chat
+                 ========================= */}
               <button
                 type="button"
                 className={`mobile-menu__item ${
@@ -151,24 +171,51 @@ export default function MobileMenu({
                 <span>T&C</span>
               </button>
 
+              {/* =========================
+                  CyC
+                  /chat/internal
+                 ========================= */}
               <button
                 type="button"
-                className="mobile-menu__item"
+                className={`mobile-menu__item ${
+                  activePage === "chat-internal"
+                    ? "mobile-menu__item--active"
+                    : ""
+                }`}
                 onClick={() =>
-                  handleNavigate("/chat")
+                  handleNavigate(
+                    "/chat/internal",
+                  )
                 }
               >
                 <MessageCircle size={20} />
                 <span>CyC</span>
               </button>
 
+              {/* =========================
+                  ADMIN
+                 ========================= */}
               {isAdmin && (
                 <>
                   <button
                     type="button"
                     className={`mobile-menu__item ${
-                      activePage ===
-                      "evaluations"
+                      activePage === "quick-tips"
+                        ? "mobile-menu__item--active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      handleNavigate("/quick-tips")
+                    }
+                  >
+                    <Lightbulb size={20} />
+                    <span>Consejos</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mobile-menu__item ${
+                      activePage === "evaluations"
                         ? "mobile-menu__item--active"
                         : ""
                     }`}
@@ -202,8 +249,7 @@ export default function MobileMenu({
                   <button
                     type="button"
                     className={`mobile-menu__item ${
-                      activePage ===
-                      "employees"
+                      activePage === "employees"
                         ? "mobile-menu__item--active"
                         : ""
                     }`}
@@ -220,7 +266,11 @@ export default function MobileMenu({
               )}
             </nav>
 
+            {/* =========================
+                BOTTOM
+               ========================= */}
             <div className="mobile-menu__bottom">
+
               <button
                 type="button"
                 className={`mobile-menu__item ${
@@ -249,6 +299,7 @@ export default function MobileMenu({
                     : "Modo oscuro"}
                 </span>
               </button>
+
             </div>
           </aside>
         </div>

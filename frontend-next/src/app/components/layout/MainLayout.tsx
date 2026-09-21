@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useState,
+  type ReactNode,
+} from "react";
+
+import { usePathname, useRouter } from "next/navigation";
 
 import Header from "@/components/layout/Header";
 import MobileMenu from "@/components/layout/MobileMenu";
 import Sidebar from "@/components/layout/Sidebar";
+
+import { useSearch } from "@/contexts/SearchContext";
 
 interface UserProfile {
   name: string;
@@ -17,8 +24,6 @@ interface MainLayoutProps {
   isAdmin?: boolean;
   onLogout: () => void;
   profile: UserProfile;
-  searchTerm?: string;
-  onSearchChange?: (value: string) => void;
 }
 
 export default function MainLayout({
@@ -26,11 +31,19 @@ export default function MainLayout({
   isAdmin = false,
   onLogout,
   profile,
-  searchTerm = "",
-  onSearchChange,
 }: MainLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const { searchTerm, setSearchTerm } = useSearch();
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] =
     useState(false);
+
+  /*
+   * La búsqueda del Header solo aparece en Mural.
+   */
+  const showSearch = pathname === "/mural";
 
   const handleToggleMobileMenu = () => {
     setIsMobileMenuOpen((current) => !current);
@@ -50,12 +63,12 @@ export default function MainLayout({
         <Header
           onLogout={onLogout}
           onSettings={() => {
-            window.location.href = "/settings";
+            router.push("/settings");
           }}
           profile={profile}
           searchTerm={searchTerm}
-          onSearchChange={onSearchChange}
-          showSearch={true}
+          onSearchChange={setSearchTerm}
+          showSearch={showSearch}
         />
 
         <main className="app-content">

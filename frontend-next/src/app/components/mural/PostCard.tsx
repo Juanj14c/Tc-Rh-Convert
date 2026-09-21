@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   MoreVertical,
   Pencil,
@@ -42,7 +47,9 @@ interface PostCardProps {
 
 const MAX_CONTENT_LENGTH = 220;
 
-const getAttachmentIcon = (fileName: string) => {
+const getAttachmentIcon = (
+  fileName: string,
+) => {
   const extension = fileName
     .split(".")
     .pop()
@@ -103,6 +110,48 @@ export default function PostCard({
 
   const [isMenuOpen, setIsMenuOpen] =
     useState(false);
+
+  /*
+   * Referencia del menú de opciones.
+   * Sirve para detectar clicks fuera.
+   */
+  const menuRef =
+    useRef<HTMLDivElement | null>(null);
+
+  /*
+   * Cierra el menú cuando se hace click
+   * fuera de los tres puntos.
+   */
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (
+      event: MouseEvent,
+    ) => {
+      const target = event.target as Node;
+
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, [isMenuOpen]);
 
   const isLongContent =
     content.length > MAX_CONTENT_LENGTH;
@@ -186,7 +235,10 @@ export default function PostCard({
         </div>
 
         {isAdmin && (
-          <div className="post-card__menu">
+          <div
+            ref={menuRef}
+            className="post-card__menu"
+          >
             <button
               type="button"
               className="post-card__menu-button"
@@ -270,6 +322,7 @@ export default function PostCard({
             rel="noopener noreferrer"
           >
             <span>Abrir enlace</span>
+
             <span aria-hidden="true">
               ↗
             </span>
@@ -325,7 +378,10 @@ export default function PostCard({
                       <ExternalLink
                         size={16}
                       />
-                      <span>Abrir</span>
+
+                      <span>
+                        Abrir
+                      </span>
                     </a>
 
                     <a
@@ -338,6 +394,7 @@ export default function PostCard({
                       <Download
                         size={16}
                       />
+
                       <span>
                         Descargar
                       </span>
@@ -367,6 +424,7 @@ export default function PostCard({
                 : 2
             }
           />
+
           <span>{likes}</span>
         </button>
 
@@ -387,6 +445,7 @@ export default function PostCard({
                 : 2
             }
           />
+
           <span>{dislikes}</span>
         </button>
       </footer>

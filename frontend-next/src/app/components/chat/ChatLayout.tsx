@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import ConversationSidebar from "./ConversationSidebar";
 
@@ -57,7 +57,7 @@ export default function ChatLayout({
     useState<Conversation | null>(
       isAdmin
         ? null
-        : availableConversations[0],
+        : availableConversations[0] ?? null,
     );
 
   const [isMobileChatOpen, setIsMobileChatOpen] =
@@ -67,6 +67,25 @@ export default function ChatLayout({
     useState<Record<number, Message[]>>(
       availableMessages,
     );
+
+  /*
+   * Cambia de forma limpia entre:
+   * anonymous <-> internal
+   *
+   * Evita conservar conversaciones o mensajes
+   * del modo anterior.
+   */
+  useEffect(() => {
+    setSelectedConversation(
+      isAdmin
+        ? null
+        : availableConversations[0] ?? null,
+    );
+
+    setMessagesById(availableMessages);
+
+    setIsMobileChatOpen(!isAdmin);
+  }, [chatMode, isAdmin]);
 
   const handleSendMessage = (
     text: string,
@@ -123,7 +142,9 @@ export default function ChatLayout({
 
   const layoutClass = [
     "chat-layout",
-    !isAdmin ? "chat-layout--employee" : "",
+    !isAdmin
+      ? "chat-layout--employee"
+      : "",
     isAdmin && isMobileChatOpen
       ? "chat-layout--mobile-chat"
       : "",

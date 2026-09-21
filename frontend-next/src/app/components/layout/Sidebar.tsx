@@ -9,23 +9,57 @@ import {
   Sun,
   Users,
   Megaphone,
+  Lightbulb,
+  
 } from "lucide-react";
 
-import { usePathname, useRouter } from "next/navigation";
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
 
 import { useTheme } from "@/contexts/useTheme";
 
-const getActivePage = (pathname: string) => {
-  if (pathname.startsWith("/mural")) return "mural";
-  if (pathname.startsWith("/chat")) return "chat";
-  if (pathname.startsWith("/employees"))
+const getActivePage = (
+  pathname: string,
+) => {
+  if (pathname.startsWith("/mural")) {
+    return "mural";
+  }
+
+  // IMPORTANTE:
+  // /chat/internal debe comprobarse
+  // antes que /chat.
+  if (
+    pathname.startsWith("/chat/internal")
+  ) {
+    return "internal-chat";
+  }
+
+  if (pathname.startsWith("/chat")) {
+    return "chat";
+  }
+
+  if (pathname.startsWith("/employees")) {
     return "employees";
-  if (pathname.startsWith("/settings"))
+  }
+
+  if (pathname.startsWith("/settings")) {
     return "settings";
-  if (pathname.startsWith("/reports"))
+  }
+
+  if (pathname.startsWith("/reports")) {
     return "reports";
-  if (pathname.startsWith("/evaluations"))
+  }
+  if (pathname.startsWith("/quick-tips")
+  ){
+    return "quick-tips";
+  }
+  if (
+    pathname.startsWith("/evaluations")
+  ) {
     return "evaluations";
+  }
 
   return "";
 };
@@ -40,10 +74,13 @@ export default function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
 
-  const { isDarkMode, toggleTheme } =
-    useTheme();
+  const {
+    isDarkMode,
+    toggleTheme,
+  } = useTheme();
 
-  const activePage = getActivePage(pathname);
+  const activePage =
+    getActivePage(pathname);
 
   return (
     <aside className="sidebar">
@@ -60,6 +97,8 @@ export default function Sidebar({
       </div>
 
       <nav className="sidebar__nav">
+        {/* MURAL */}
+
         <button
           type="button"
           className={`sidebar__item ${
@@ -75,6 +114,8 @@ export default function Sidebar({
           <span>Mural</span>
         </button>
 
+        {/* T&C */}
+
         <button
           type="button"
           className={`sidebar__item ${
@@ -87,12 +128,18 @@ export default function Sidebar({
           }
         >
           <Megaphone size={20} />
-          <span>T&C</span>
+          <span>T&amp;C</span>
         </button>
+
+        {/* CyC */}
 
         <button
           type="button"
-          className="sidebar__item"
+          className={`sidebar__item ${
+            activePage === "internal-chat"
+              ? "sidebar__item--active"
+              : ""
+          }`}
           onClick={() =>
             router.push("/chat/internal")
           }
@@ -103,6 +150,8 @@ export default function Sidebar({
 
         {isAdmin && (
           <>
+            {/* EVALUACIONES */}
+
             <button
               type="button"
               className={`sidebar__item ${
@@ -120,6 +169,8 @@ export default function Sidebar({
               <span>Evaluaciones</span>
             </button>
 
+            {/* REPORTES */}
+
             <button
               type="button"
               className={`sidebar__item ${
@@ -134,6 +185,8 @@ export default function Sidebar({
               <BarChart3 size={20} />
               <span>Reportes</span>
             </button>
+
+            {/* EMPLEADOS */}
 
             <button
               type="button"
@@ -153,9 +206,25 @@ export default function Sidebar({
             </button>
           </>
         )}
+        <button
+        type="button"
+        className={`sidebar__item  ${
+          activePage  === "quick-tips"
+          ?"sidebar__item--active"
+          : ""
+          }`}
+          onClick={()=>
+            router.push("/quick-tips")
+          }
+          >
+            <Lightbulb size ={20} />
+            <span>Consejos</span>
+          </button>
       </nav>
 
       <div className="sidebar__bottom">
+        {/* CONFIGURACIÓN */}
+
         <button
           type="button"
           className={`sidebar__item ${
@@ -170,6 +239,8 @@ export default function Sidebar({
           <Settings size={20} />
           <span>Configuración</span>
         </button>
+
+        {/* TEMA */}
 
         <button
           type="button"
