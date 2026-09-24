@@ -10,7 +10,6 @@ import {
   Users,
   Megaphone,
   Lightbulb,
-  
 } from "lucide-react";
 
 import {
@@ -27,9 +26,6 @@ const getActivePage = (
     return "mural";
   }
 
-  // IMPORTANTE:
-  // /chat/internal debe comprobarse
-  // antes que /chat.
   if (
     pathname.startsWith("/chat/internal")
   ) {
@@ -40,21 +36,30 @@ const getActivePage = (
     return "chat";
   }
 
-  if (pathname.startsWith("/employees")) {
+  if (
+    pathname.startsWith("/employees")
+  ) {
     return "employees";
   }
 
-  if (pathname.startsWith("/settings")) {
+  if (
+    pathname.startsWith("/settings")
+  ) {
     return "settings";
   }
 
-  if (pathname.startsWith("/reports")) {
+  if (
+    pathname.startsWith("/reports")
+  ) {
     return "reports";
   }
-  if (pathname.startsWith("/quick-tips")
-  ){
+
+  if (
+    pathname.startsWith("/quick-tips")
+  ) {
     return "quick-tips";
   }
+
   if (
     pathname.startsWith("/evaluations")
   ) {
@@ -141,15 +146,38 @@ export default function Sidebar({
               : ""
           }`}
           onClick={() =>
-            router.push("/chat/internal")
+            router.push(
+              "/chat/internal",
+            )
           }
         >
           <MessageCircle size={20} />
           <span>CyC</span>
         </button>
 
+        {/* ADMIN */}
+
         {isAdmin && (
           <>
+            {/* CONSEJOS */}
+
+            <button
+              type="button"
+              className={`sidebar__item ${
+                activePage === "quick-tips"
+                  ? "sidebar__item--active"
+                  : ""
+              }`}
+              onClick={() =>
+                router.push(
+                  "/quick-tips",
+                )
+              }
+            >
+              <Lightbulb size={20} />
+              <span>Consejos</span>
+            </button>
+
             {/* EVALUACIONES */}
 
             <button
@@ -166,7 +194,9 @@ export default function Sidebar({
               }
             >
               <ClipboardList size={20} />
-              <span>Evaluaciones</span>
+              <span>
+                Evaluaciones
+              </span>
             </button>
 
             {/* REPORTES */}
@@ -206,20 +236,6 @@ export default function Sidebar({
             </button>
           </>
         )}
-        <button
-        type="button"
-        className={`sidebar__item  ${
-          activePage  === "quick-tips"
-          ?"sidebar__item--active"
-          : ""
-          }`}
-          onClick={()=>
-            router.push("/quick-tips")
-          }
-          >
-            <Lightbulb size ={20} />
-            <span>Consejos</span>
-          </button>
       </nav>
 
       <div className="sidebar__bottom">
@@ -237,7 +253,9 @@ export default function Sidebar({
           }
         >
           <Settings size={20} />
-          <span>Configuración</span>
+          <span>
+            Configuración
+          </span>
         </button>
 
         {/* TEMA */}

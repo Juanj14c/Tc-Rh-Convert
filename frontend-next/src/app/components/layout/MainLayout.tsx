@@ -5,24 +5,29 @@ import {
   type ReactNode,
 } from "react";
 
-import { usePathname, useRouter } from "next/navigation";
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
 
 import Header from "@/components/layout/Header";
 import MobileMenu from "@/components/layout/MobileMenu";
 import Sidebar from "@/components/layout/Sidebar";
 
 import { useSearch } from "@/contexts/SearchContext";
+import { useProfile } from "@/hooks/useProfile";
 
 interface UserProfile {
   name: string;
   email: string;
   image: string;
+  role?: string;
 }
 
 interface MainLayoutProps {
   children: ReactNode;
   isAdmin?: boolean;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   profile: UserProfile;
 }
 
@@ -35,19 +40,33 @@ export default function MainLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const { searchTerm, setSearchTerm } = useSearch();
+  const {
+    isProfileLoading,
+  } = useProfile();
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] =
-    useState(false);
+  const {
+    searchTerm,
+    setSearchTerm,
+  } = useSearch();
+
+  const [
+    isMobileMenuOpen,
+    setIsMobileMenuOpen,
+  ] = useState(false);
 
   /*
-   * La búsqueda del Header solo aparece en Mural.
+   * La búsqueda del Header solo aparece
+   * en Mural.
    */
-  const showSearch = pathname === "/mural";
+  const showSearch =
+    pathname === "/mural";
 
-  const handleToggleMobileMenu = () => {
-    setIsMobileMenuOpen((current) => !current);
-  };
+  const handleToggleMobileMenu =
+    () => {
+      setIsMobileMenuOpen(
+        (current) => !current,
+      );
+    };
 
   return (
     <div className="app-layout">
@@ -56,7 +75,9 @@ export default function MainLayout({
       <MobileMenu
         isOpen={isMobileMenuOpen}
         isAdmin={isAdmin}
-        onToggle={handleToggleMobileMenu}
+        onToggle={
+          handleToggleMobileMenu
+        }
       />
 
       <div className="app-main">
@@ -66,8 +87,13 @@ export default function MainLayout({
             router.push("/settings");
           }}
           profile={profile}
+          isProfileLoading={
+            isProfileLoading
+          }
           searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          onSearchChange={
+            setSearchTerm
+          }
           showSearch={showSearch}
         />
 

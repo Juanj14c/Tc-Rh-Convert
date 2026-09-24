@@ -1,8 +1,11 @@
-import { createServerClient } from "@supabase/ssr";
 import {
   NextResponse,
   type NextRequest,
 } from "next/server";
+
+import {
+  createServerClient,
+} from "@supabase/ssr";
 
 export async function updateSession(
   request: NextRequest,
@@ -58,47 +61,61 @@ export async function updateSession(
               },
             );
 
-            Object.entries(
-              headers,
-            ).forEach(
-              ([key, value]) => {
-                supabaseResponse.headers.set(
-                  key,
-                  value,
-                );
-              },
-            );
+            if (headers) {
+              Object.entries(
+                headers,
+              ).forEach(
+                ([key, value]) => {
+                  supabaseResponse.headers.set(
+                    key,
+                    value,
+                  );
+                },
+              );
+            }
           },
         },
       },
     );
 
   /*
-   * Verificamos los claims de la sesión.
-   *
-   * No usamos getSession() aquí para decidir
-   * si el usuario está autenticado.
+   * =========================================
+   * VERIFICAR SESIÓN
+   * =========================================
    */
+
   const {
     data: claimsData,
-  } = await supabase.auth.getClaims();
+  } =
+    await supabase.auth.getClaims();
 
   const userClaims =
     claimsData?.claims;
 
+  const pathname =
+    request.nextUrl.pathname;
+
   /*
-   * Por ahora solo protegemos las rutas
-   * de la aplicación.
-   *
-   * Login y rutas de auth quedan públicas.
+   * =========================================
+   * RUTAS PÚBLICAS
+   * =========================================
    */
+
   const isPublicRoute =
-    request.nextUrl.pathname.startsWith(
-      "/login",
+    pathname.startsWith("/login") ||
+    pathname.startsWith(
+      "/forgot-password",
     ) ||
-    request.nextUrl.pathname.startsWith(
-      "/auth",
-    );
+    pathname.startsWith(
+      "/reset-password",
+    ) ||
+    pathname.startsWith("/auth");
+
+  /*
+   * =========================================
+   * SIN SESIÓN
+   * =========================================
+   */
 
   if (
     !userClaims &&
@@ -108,6 +125,7 @@ export async function updateSession(
       request.nextUrl.clone();
 
     url.pathname = "/login";
+    url.search = "";
 
     return NextResponse.redirect(
       url,
@@ -115,9 +133,88 @@ export async function updateSession(
   }
 
   /*
-   * IMPORTANTE:
-   * devolvemos la misma respuesta de Supabase
-   * para conservar las cookies actualizadas.
+   * =========================================
+   * RUTAS EXCLUSIVAS DE ADMIN
+   * =========================================
    */
+
+  const adminOnlyRoutes = [
+    "/employees",
+    "/reports",
+    "/evaluations",
+    "/quick-tips",
+  ];
+
+  const isAdminOnlyRoute =
+    adminOnlyRoutes.some(
+      (route) =>
+        pathname === route ||
+        pathname.startsWith(
+          `${route}/`,
+        ),
+    );
+
+  /*
+   * Si la ruta es administrativa,
+   * necesitamos comprobar el rol real
+   * del usuario en profiles.
+   */
+
+  if (
+    userClaims &&
+    isAdminOnlyRoute
+  ) {
+    const userId =
+      userClaims.sub;
+
+    if (!userId) {
+      const url =
+        request.nextUrl.clone();
+
+      url.pathname = "/mural";
+      url.search = "";
+
+      return NextResponse.redirect(
+        url,
+      );
+    }
+
+    const {
+      data: profile,
+      error: profileError,
+    } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+    /*
+     * Ante cualquier problema leyendo
+     * el perfil, no damos acceso administrativo.
+     */
+
+    if (
+      profileError ||
+      profile?.role !== "admin"
+    ) {
+      const url =
+        request.nextUrl.clone();
+
+      url.pathname = "/mural";
+      url.search = "";
+
+      return NextResponse.redirect(
+        url,
+      );
+    }
+  }
+
+  /*
+   * =========================================
+   * RESPUESTA
+   * =========================================
+   */
+
   return supabaseResponse;
 }

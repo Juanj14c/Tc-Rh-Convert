@@ -1,30 +1,21 @@
 "use client";
 
-import {
-  Bell,
-  LogOut,
-  Search,
-  Settings,
-  X,
-} from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
+import { LogOut, Search, Settings, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import NotificationBell from "../notifications/NotificationBell";
 
 interface UserProfile {
   name: string;
   email: string;
   image: string;
+  role?: string;
 }
 
 interface HeaderProps {
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   onSettings: () => void;
   profile: UserProfile;
+  isProfileLoading?: boolean;
   showSearch?: boolean;
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
@@ -34,24 +25,18 @@ export default function Header({
   onLogout,
   onSettings,
   profile,
+  isProfileLoading = false,
   showSearch = false,
   searchTerm = "",
   onSearchChange,
 }: HeaderProps) {
-  const [isUserMenuOpen, setIsUserMenuOpen] =
-    useState(false);
-
-  const userMenuRef =
-    useRef<HTMLDivElement | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!isUserMenuOpen) {
-      return;
-    }
+    if (!isUserMenuOpen) return;
 
-    const handleOutsideClick = (
-      event: MouseEvent,
-    ) => {
+    const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
 
       if (
@@ -62,10 +47,7 @@ export default function Header({
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleOutsideClick,
-    );
+    document.addEventListener("mousedown", handleOutsideClick);
 
     return () => {
       document.removeEventListener(
@@ -75,14 +57,37 @@ export default function Header({
     };
   }, [isUserMenuOpen]);
 
-  const handleLogout = () => {
-    setIsUserMenuOpen(false);
-    onLogout();
+  const roleLabel = isProfileLoading
+  ?""
+  :profile.role ==="admin"
+  ? "Admin T&C"
+  : "Empleado";
+   
+  
+
+  const handleUserToggle = () => {
+    setIsUserMenuOpen((current) => !current);
   };
 
-  const handleSettings = () => {
+  const handleSettings = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     setIsUserMenuOpen(false);
     onSettings();
+  };
+
+  const handleLogout = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setIsUserMenuOpen(false);
+
+    await onLogout();
   };
 
   return (
@@ -95,9 +100,7 @@ export default function Header({
             type="text"
             value={searchTerm}
             onChange={(event) =>
-              onSearchChange?.(
-                event.target.value,
-              )
+              onSearchChange?.(event.target.value)
             }
             placeholder="Buscar..."
             aria-label="Buscar"
@@ -107,9 +110,7 @@ export default function Header({
             <button
               type="button"
               className="mural-page__search-clear"
-              onClick={() =>
-                onSearchChange?.("")
-              }
+              onClick={() => onSearchChange?.("")}
               aria-label="Limpiar búsqueda"
             >
               <X size={14} />
@@ -125,14 +126,11 @@ export default function Header({
           ref={userMenuRef}
           className="header__user"
         >
+          {/* PERFIL */}
           <button
             type="button"
             className="header__company"
-            onClick={() =>
-              setIsUserMenuOpen(
-                (current) => !current,
-              )
-            }
+            onClick={handleUserToggle}
             aria-expanded={isUserMenuOpen}
             aria-haspopup="menu"
           >
@@ -155,10 +153,11 @@ export default function Header({
 
             <div className="header__company-info">
               <strong>{profile.name}</strong>
-              <span>Admin T&C</span>
+              <span>{roleLabel}</span>
             </div>
           </button>
 
+          {/* MENÚ */}
           {isUserMenuOpen && (
             <div
               className="header__user-menu"
@@ -166,11 +165,12 @@ export default function Header({
             >
               <div className="header__user-menu-info">
                 <strong>{profile.name}</strong>
-                <span>Admin T&C</span>
+                <span>{roleLabel}</span>
               </div>
 
               <div className="header__user-menu-divider" />
 
+              {/* CONFIGURACIÓN */}
               <button
                 type="button"
                 className="header__user-menu-item"
@@ -181,6 +181,7 @@ export default function Header({
                 <span>Configuración</span>
               </button>
 
+              {/* CERRAR SESIÓN */}
               <button
                 type="button"
                 className="header__user-menu-item header__user-menu-item--logout"

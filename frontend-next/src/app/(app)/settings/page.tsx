@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+
 import {
   Camera,
   Check,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { useProfile } from "@/hooks/useProfile";
+import { createClient } from "@/lib/supabase/client";
 
 function SettingsPage() {
   const {
@@ -17,8 +19,15 @@ function SettingsPage() {
     setProfile,
   } = useProfile();
 
-  const [imagePreview, setImagePreview] =
-    useState(profile.image ?? "");
+  const [
+    selectedImagePreview,
+    setSelectedImagePreview,
+  ] = useState("");
+
+  const [
+    selectedImageFile,
+    setSelectedImageFile,
+  ] = useState<File | null>(null);
 
   const fileInputRef =
     useRef<HTMLInputElement>(null);
@@ -32,27 +41,38 @@ function SettingsPage() {
   const [saved, setSaved] =
     useState(false);
 
+  const [error, setError] =
+    useState("");
+
   /*
-   * Datos oficiales del empleado.
+   * Si no hay una imagen nueva seleccionada,
+   * mostramos la imagen que viene de Supabase.
    *
-   * TEMPORAL:
-   * más adelante vendrán desde Supabase.
+   * Si el usuario selecciona una imagen nueva,
+   * mostramos su preview local.
    */
+  const imagePreview =
+    selectedImagePreview ||
+    profile.image ||
+    "";
 
   const country =
-    profile.countryName ??
-    "Colombia";
+    profile.countryName ?? "";
 
   const area =
-    profile.area ??
-    "Comercial";
+    profile.area ?? "";
 
   const campaign =
-    profile.campaign ??
-    "WOM";
+    profile.campaign ?? "";
 
   const entryDate =
     profile.entryDate ?? "";
+
+  /*
+   * =========================
+   * CAMBIAR FOTO
+   * =========================
+   */
 
   const handleProfileImageChange = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -64,51 +84,245 @@ function SettingsPage() {
       return;
     }
 
+    setError("");
+    setSaved(false);
+
     if (!file.type.startsWith("image/")) {
+      setError(
+        "Selecciona un archivo de imagen válido.",
+      );
+
+      event.target.value = "";
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (
+      file.size >
+      5 * 1024 * 1024
+    ) {
+      setError(
+        "La imagen no puede superar los 5 MB.",
+      );
+
+      event.target.value = "";
       return;
     }
 
     const previewUrl =
       URL.createObjectURL(file);
 
-    setImagePreview(previewUrl);
+    setSelectedImagePreview(
+      previewUrl,
+    );
 
-    setProfile({
-      ...profile,
-      image: previewUrl,
-    });
+    setSelectedImageFile(file);
 
     event.target.value = "";
   };
 
-  const handleSave = () => {
+  /*
+   * =========================
+   * GUARDAR FOTO
+   * =========================
+   */
+
+  const handleSave = async () => {
     if (isSaving) {
+      return;
+    }
+
+    if (!selectedImageFile) {
       return;
     }
 
     setIsSaving(true);
     setSaved(false);
+    setError("");
 
-    // TEMPORAL:
-    // posteriormente se guardará en Supabase.
+    try {
+      const supabase =
+        createClient();
 
-    window.setTimeout(() => {
+      /*
+       * Usuario autenticado
+       */
+      const {
+        data: { user },
+        error: userError,
+      } =
+        await supabase.auth.getUser();
+
+      if (
+        userError ||
+        !user
+      ) {
+        throw new Error(
+          "No se pudo identificar al usuario.",
+        );
+      }
+
+      /*
+       * Conservamos únicamente la extensión
+       * permitida por el selector.
+       */
+      const fileExtension =
+        selectedImageFile.name
+          .split(".")
+          .pop()
+          ?.toLowerCase() ||
+        "jpg";
+
+      /*
+       * Cada usuario tiene su propia carpeta.
+       *
+       * avatars/
+       *   USER_ID/
+       *     avatar-....jpg
+       */
+      const filePath =
+        `${user.id}/avatar-${Date.now()}.${fileExtension}`;
+
+      /*
+       * Subimos la nueva foto.
+       */
+      const {
+        error: uploadError,
+      } = await supabase.storage
+        .from("avatars")
+        .upload(
+          filePath,
+          selectedImageFile,
+          {
+            contentType:
+              selectedImageFile.type,
+            cacheControl: "3600",
+            upsert: false,
+          },
+        );
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      /*
+       * Guardamos únicamente la ruta
+       * dentro de profiles.
+       */
+      const {
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .update({
+          avatar_url:
+            filePath,
+        })
+        .eq(
+          "id",
+          user.id,
+        );
+
+      if (profileError) {
+        /*
+         * Si la actualización del perfil falla,
+         * eliminamos la foto que acabamos de subir.
+         */
+        await supabase.storage
+          .from("avatars")
+          .remove([
+            filePath,
+          ]);
+
+        throw profileError;
+      }
+
+      /*
+       * Como el bucket es privado,
+       * necesitamos una URL firmada.
+       */
+      const {
+        data: signedData,
+        error: signedUrlError,
+      } =
+        await supabase.storage
+          .from("avatars")
+          .createSignedUrl(
+            filePath,
+            60 * 60,
+          );
+
+      if (signedUrlError) {
+        throw signedUrlError;
+      }
+
+      /*
+       * Eliminamos la foto anterior
+       * después de guardar correctamente
+       * la nueva.
+       */
+      if (
+        profile.avatarPath &&
+        profile.avatarPath !==
+          filePath
+      ) {
+        const {
+          error: removeOldError,
+        } =
+          await supabase.storage
+            .from("avatars")
+            .remove([
+              profile.avatarPath,
+            ]);
+
+        if (removeOldError) {
+          console.error(
+            "No se pudo eliminar la foto anterior:",
+            removeOldError,
+          );
+        }
+      }
+
+      const signedUrl =
+        signedData.signedUrl;
+
+      /*
+       * Ya no necesitamos el preview local.
+       * Ahora utilizamos la URL firmada real.
+       */
+      setSelectedImagePreview(
+        "",
+      );
+
+      setSelectedImageFile(
+        null,
+      );
+
+      /*
+       * Actualizamos el contexto para que
+       * Header y Settings cambien inmediatamente.
+       */
       setProfile({
         ...profile,
-        image: imagePreview,
+        image: signedUrl,
+        avatarPath: filePath,
       });
 
-      setIsSaving(false);
       setSaved(true);
 
       window.setTimeout(() => {
         setSaved(false);
       }, 2500);
-    }, 800);
+    } catch (saveError) {
+      console.error(
+        "Error guardando la foto:",
+        saveError,
+      );
+
+      setError(
+        "No se pudo guardar la foto de perfil. Inténtalo nuevamente.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -125,7 +339,9 @@ function SettingsPage() {
       </div>
 
       <div className="settings-grid">
-        {/* PERFIL */}
+        {/* =========================
+            PERFIL
+           ========================= */}
 
         <section className="settings-card">
           <div className="settings-card__header">
@@ -181,6 +397,7 @@ function SettingsPage() {
                 }
                 aria-label="Cambiar foto de perfil"
                 title="Cambiar foto de perfil"
+                disabled={isSaving}
               >
                 <Camera size={14} />
               </button>
@@ -198,6 +415,15 @@ function SettingsPage() {
               </span>
             </div>
           </div>
+
+          {error && (
+            <div
+              className="settings-form__error"
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
 
           <div className="settings-form">
             {/* NOMBRE */}
@@ -226,26 +452,15 @@ function SettingsPage() {
               />
             </label>
 
-            {/* ROL */}
-
-            <label>
-              Rol
-
-              <input
-                type="text"
-                value={
-                  isAdmin
-                    ? "Admin T&C"
-                    : "Empleado"
-                }
-                readOnly
-                aria-readonly="true"
-              />
-            </label>
+    
+          
+          
           </div>
         </section>
 
-        {/* INFORMACIÓN LABORAL */}
+        {/* =========================
+            INFORMACIÓN LABORAL
+           ========================= */}
 
         <section className="settings-card">
           <div className="settings-card__header">
@@ -327,7 +542,9 @@ function SettingsPage() {
           </div>
         </section>
 
-        {/* PREFERENCIAS */}
+        {/* =========================
+            PREFERENCIAS
+           ========================= */}
 
         <section className="settings-card settings-card--full">
           <div className="settings-card__header">
@@ -368,7 +585,10 @@ function SettingsPage() {
             type="button"
             className="settings-save"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={
+              isSaving ||
+              !selectedImageFile
+            }
           >
             {isSaving ? (
               <>
@@ -383,7 +603,7 @@ function SettingsPage() {
             ) : (
               <>
                 <Save size={17} />
-                Guardar cambios
+                Guardar foto
               </>
             )}
           </button>
@@ -393,4 +613,4 @@ function SettingsPage() {
   );
 }
 
-export default SettingsPage;
+export default SettingsPage;    

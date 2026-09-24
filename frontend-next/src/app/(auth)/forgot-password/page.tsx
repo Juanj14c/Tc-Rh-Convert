@@ -1,136 +1,206 @@
 "use client";
 
 import { useState } from "react";
-
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
-
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
+export default function ForgotPasswordPage() {
+  const router = useRouter();
 
-export default function ForgotPasswordPage(){
-    const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-    const [email, setEmail] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState("");
-    const [error, setError] = useState("");
-    
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>)=>{
-        event.preventDefault();
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
 
-        if ( isLoading) return;
+    if (isLoading) {
+      return;
+    }
 
-        setMessage("");
-        setError("");
+    setMessage("");
+    setError("");
 
-        if (!email.trim()){
-            setError("Ingresa tu correo electrónico");
-            return;
-        }
-        setIsLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
 
-        window.setTimeout(()=>{
-            setIsLoading(false);
-            setMessage(
-                "Si el correo existe, recibirás un enlace para restablecer tu contraseña."
-            );
-        }, 800)
-    };
+    if (!normalizedEmail) {
+      setError("Ingresa tu correo electrónico.");
+      return;
+    }
 
-    return(
-        <main className="login-page">
-            <section className="login-brand-panel">
-                <div className="login-brand-panel__glow login-brand-panel__glow--one"/>
-                <div className="login-brand-panel__glow login-brand-panel__glow--two"/>
-            <div className="login-brand-panel__content">
-                <img 
-                src="/assets/brand/simbolo_claro.png" 
-                alt="Logo de la empresa" 
-                className="login-brand-panel__logo-image" />
-                <h1>Tc&Rh Convert</h1>
-                <p>
-                    Recupera el acceso a tu cuenta de manera segura.
-                </p>
-                </div>
-            </section>
-        <section className="login-form-panel">
-            <div className="login-form-container">
-        <button
-        type="button"
-        className="login-form__back"
-        onClick={()=> router.push("/login")}
-        >
-            <ArrowLeft size ={17} />
-            Volver al inicio de sesión
-        </button>
-        <div className="login-form-header">
-            <span>Tc&Rh Convert</span>
-            <h2>Recuperar contraseña</h2>
-            <p>
-                Introduce tu correo y te enviaremos un enlace para recuperar
-                tu contraseña.
-            </p>
+    setIsLoading(true);
+
+    try {
+      const supabase = createClient();
+
+      const redirectTo =
+        `${window.location.origin}/reset-password`;
+
+      const { error: resetError } =
+        await supabase.auth.resetPasswordForEmail(
+          normalizedEmail,
+          {
+            redirectTo,
+          },
+        );
+
+      if (resetError) {
+        console.error(
+          "Error solicitando recuperación:",
+          resetError,
+        );
+
+        setError(
+          "No fue posible enviar el enlace. Inténtalo nuevamente.",
+        );
+
+        return;
+      }
+
+      setMessage(
+        "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
+      );
+    } catch (resetError) {
+      console.error(
+        "Error inesperado en recuperación:",
+        resetError,
+      );
+
+      setError(
+        "No fue posible enviar el enlace. Inténtalo nuevamente.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="login-page">
+      {/* =========================================
+          PANEL DE MARCA
+          ========================================= */}
+
+      <section className="login-brand-panel">
+        <div className="login-brand-panel__glow login-brand-panel__glow--one" />
+        <div className="login-brand-panel__glow login-brand-panel__glow--two" />
+
+        <div className="login-brand-panel__content">
+          <img
+            src="/assets/brand/simbolo_claro.png"
+            alt="Logo de la empresa"
+            className="login-brand-panel__logo-image"
+          />
+
+          <h1>Tc&amp;Rh Convert</h1>
+
+          <p>
+            Recupera el acceso a tu cuenta
+            de manera segura.
+          </p>
         </div>
-        <form 
-        className="login-form"
-        onSubmit={handleSubmit}
-        
-        >
+      </section>
+
+      {/* =========================================
+          PANEL DE RECUPERACIÓN
+          ========================================= */}
+
+      <section className="login-form-panel">
+        <div className="login-form-container">
+          <button
+            type="button"
+            className="login-form__back"
+            onClick={() => router.push("/login")}
+            disabled={isLoading}
+          >
+            <ArrowLeft size={17} />
+
+            <span>
+              Volver al inicio de sesión
+            </span>
+          </button>
+
+          <div className="login-form-header">
+            <span>Tc&amp;Rh Convert</span>
+
+            <h2>
+              Recuperar contraseña
+            </h2>
+
+            <p>
+              Introduce tu correo y te
+              enviaremos un enlace para
+              recuperar tu contraseña.
+            </p>
+          </div>
+
+          <form
+            className="login-form"
+            onSubmit={handleSubmit}
+          >
             <label>
-                Correo electrónico
-                <div className="login-form__input">
-                    <Mail size={18} />
-                    <input 
-                    type="text" 
-                    value={email}
-                    onChange={(event)=> setEmail(event.target.value)}
-                    placeholder="correo@empresa.com"
-                    autoComplete="email"
-                    required
-                    />
-                </div>
+              Correo electrónico
+
+              <div className="login-form__input">
+                <Mail size={18} />
+
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) =>
+                    setEmail(event.target.value)
+                  }
+                  placeholder="correo@empresa.com"
+                  autoComplete="email"
+                  disabled={isLoading}
+                />
+              </div>
             </label>
-            {error &&(
-                <div 
+
+            {error && (
+              <div
                 className="login-form__error"
                 role="alert"
-                >
-                    {error}
-                </div>
+              >
+                {error}
+              </div>
             )}
-            {message &&(
-                <div 
+
+            {message && (
+              <div
                 className="login-form__succes"
                 role="status"
-                >
-                    {error}
-                </div>
+              >
+                {message}
+              </div>
             )}
 
-            <button 
-            type="submit"
-            className="login-form__submit"
-            disabled={isLoading}
+            <button
+              type="submit"
+              className="login-form__submit"
+              disabled={isLoading}
             >
-                {isLoading ?(
-                    <>
-                    <Loader2
+              {isLoading ? (
+                <>
+                  <Loader2
                     size={18}
                     className="login-form__spinner"
-                    />
+                  />
+
+                  <span>
                     Enviando...
-                    </>
-                ):(
-                    "Enviar enlace"
-                )}
-
+                  </span>
+                </>
+              ) : (
+                "Enviar enlace"
+              )}
             </button>
-        </form>
-
-
-            </div>
-        </section>
-
-        </main>
-    )
+          </form>
+        </div>
+      </section>
+    </main>
+  );
 }

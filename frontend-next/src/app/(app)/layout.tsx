@@ -7,15 +7,37 @@ import { ProfileProvider } from "@/contexts/profileContext";
 import { useProfile } from "@/hooks/useProfile";
 import QuickTipNotifier from "@/components/quickTips/QuickTipNotifier";
 import { SearchProvider } from "@/contexts/SearchContext";
+import { createClient } from "@/lib/supabase/client";
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
-function AppLayoutContent({ children }: AppLayoutProps) {
-  const { profile, isAdmin } = useProfile();
+function AppLayoutContent({
+  children,
+}: AppLayoutProps) {
+  const { profile, isAdmin } =
+    useProfile();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const supabase = createClient();
+
+    const { error } =
+      await supabase.auth.signOut();
+
+    if (error) {
+      console.error(
+        "Error cerrando sesión:",
+        error,
+      );
+
+      return;
+    }
+
+    /*
+     * Una vez cerrada la sesión en Supabase,
+     * regresamos al Login.
+     */
     window.location.href = "/login";
   };
 
@@ -24,7 +46,6 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       isAdmin={isAdmin}
       onLogout={handleLogout}
       profile={profile}
-     
     >
       {children}
     </MainLayout>
@@ -36,12 +57,12 @@ export default function AppLayout({
 }: AppLayoutProps) {
   return (
     <ProfileProvider>
-      <SearchProvider >
-      <QuickTipNotifier />
+      <SearchProvider>
+        <QuickTipNotifier />
 
-      <AppLayoutContent>
-        {children}
-      </AppLayoutContent>
+        <AppLayoutContent>
+          {children}
+        </AppLayoutContent>
       </SearchProvider>
     </ProfileProvider>
   );
