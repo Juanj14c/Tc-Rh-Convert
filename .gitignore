@@ -1,0 +1,26 @@
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Dependencias
+node_modules/
+
+# Archivos generados por Next.js
+.next/
+out/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# Copias de seguridad
+*.bak
+*.bak-*
+
+# Dockerfiles de prueba
+frontend-next/Dockerfile.test-*

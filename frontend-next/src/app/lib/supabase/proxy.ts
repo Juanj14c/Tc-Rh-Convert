@@ -109,7 +109,8 @@ export async function updateSession(
     pathname.startsWith(
       "/reset-password",
     ) ||
-    pathname.startsWith("/auth");
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/invite/accept");
 
   /*
    * =========================================
