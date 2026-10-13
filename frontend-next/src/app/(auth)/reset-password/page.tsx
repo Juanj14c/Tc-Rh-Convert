@@ -46,107 +46,76 @@ export default function ResetPasswordPage() {
   const [error, setError] =
     useState("");
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const initializeRecovery = async () => {
-      const supabase = createClient();
-
-      try {
-        const url = new URL(
-          window.location.href,
-        );
-
-        const code =
-          url.searchParams.get("code");
-
-        /*
-         * Cuando Supabase entrega un código de recuperación
-         * por URL, lo intercambiamos por una sesión.
-         */
-        if (code) {
-          const {
-            error: exchangeError,
-          } =
-            await supabase.auth.exchangeCodeForSession(
-              code,
-            );
-
-          if (exchangeError) {
-            console.error(
-              "Error intercambiando código de recuperación:",
-              exchangeError,
-            );
-
-            if (isMounted) {
-              setError(
-                "Este enlace de recuperación no es válido o ya expiró.",
-              );
-              setIsRecoveryReady(false);
-            }
-
-            return;
-          }
-        }
-
-        /*
-         * Confirmamos que existe una sesión válida
-         * después del intercambio o del flujo
-         * automático de Supabase.
-         */
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          if (isMounted) {
-            setError(
-              "El enlace de recuperación no es válido o ya expiró.",
-            );
-            setIsRecoveryReady(false);
-          }
-
-          return;
-        }
-
-        if (isMounted) {
-          setIsRecoveryReady(true);
-        }
-
-        /*
-         * Limpiamos el código de la barra de direcciones
-         * después de haberlo procesado.
-         */
-        window.history.replaceState(
-          {},
-          "",
-          "/reset-password",
-        );
-      } catch (initializationError) {
-        console.error(
-          "Error inicializando recuperación:",
-          initializationError,
-        );
-
-        if (isMounted) {
+  useEffect(()=>{
+    let isMouted = true;
+    const initializeRecovery = async () =>{
+     const supabase = createClient();
+    try{
+      const url = new URL(window.location.href);
+      //Detectar errores devueltos por supabase en el enlace
+      const auhtError =
+      url.searchParams.get("error_description") ||
+      url.searchParams.get("error")||
+      url.searchParams.get("error_code");
+      if(auhtError){
+        if(isMouted){
           setError(
-            "No fue posible validar el enlace de recuperación.",
+            "El enlace de recuperación no es vaálido o ya expiró",
           );
-
           setIsRecoveryReady(false);
         }
-      } finally {
-        if (isMounted) {
-          setIsInitializing(false);
-        }
+        return;
       }
+      /*
+      * createBrowserClient usa PKCE y procesa
+      *
+      * No llamar aquí a exchangeCodeForSession:
+      * *podría intentar intercambiar un código que
+      * el cliente ya haya consumido
+      */
+     const {
+      data: {user},
+      error: useError,
+     } = await supabase.auth.getUser();
+     if (useError || !user){
+      if (isMouted) {
+        setError(
+          "El enlace de recuperación no es válido o ya expiró.",
+        );
+        setIsRecoveryReady(false);
+      }
+      return;
+     }
+     if (isMouted){
+      setIsRecoveryReady(true);
+      // Limpiar los parámentros solo después de validar
+      // que Supabase estableció una sesión válida.
+      window.history.replaceState(
+        {},
+        document.title,
+        url.pathname,
+      );
+     }
+    } catch (initializationError){
+      console.error(
+        "Error inicializando recuperación:",
+        initializationError,
+      );
+      if (isMouted){
+        setError(
+          "No fue posible validar el enlace de recuperación",
+        );
+        setIsRecoveryReady(false);
+      }
+    }finally {
+      if (isMouted){
+        setIsInitializing(false);
+      }
+    }
     };
-
     void initializeRecovery();
-
-    return () => {
-      isMounted = false;
+    return ()=>{
+      isMouted = false;
     };
   }, []);
 
