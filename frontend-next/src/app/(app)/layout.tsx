@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 import QuickTipNotifier from "@/components/quickTips/QuickTipNotifier";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { createClient } from "@/lib/supabase/client";
-
+import RefreshOnBackCache from "@/components/layout/RefreshOnBackCache";
 interface AppLayoutProps {
   children: ReactNode;
 }
@@ -59,7 +59,7 @@ export default function AppLayout({
     <ProfileProvider>
       <SearchProvider>
         <QuickTipNotifier />
-
+        <RefreshOnBackCache />
         <AppLayoutContent>
           {children}
         </AppLayoutContent>
