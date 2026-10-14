@@ -341,8 +341,8 @@ export default function InviteAcceptPage() {
           </label>
 
           <p className="password-hint">
-            Utiliza una contraseña segura que no compartas con otras
-            personas.
+            La contraseña debe tener al menos 8 caracteres. Utiliza
+            una contraseña segura que no compartas con otras personas.
           </p>
 
           {error && (

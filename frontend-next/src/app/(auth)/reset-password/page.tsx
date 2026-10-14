@@ -410,6 +410,7 @@ export default function ResetPasswordPage() {
                       event.target.value,
                     )
                   }
+                  minLength={8}
                   placeholder="Mínimo 8 caracteres"
                   autoComplete="new-password"
                   disabled={isLoading}
@@ -437,10 +438,23 @@ export default function ResetPasswordPage() {
                     <Eye size={18} />
                   )}
                 </button>
+
               </div>
+               <small
+                style={{
+                  display: "block",
+                  marginTop: "6px",
+                  color : "#94a3b8",
+                  fontSize: "12px",
+                  lineHeight: 1.5,
+                }}
+                >
+                  La contraseña debe tener al menos 8 caracteres.
+                </small>
             </label>
 
             {/* CONFIRMAR CONTRASEÑA */}
+
 
             <label className="login-form__field">
               <span>
@@ -489,6 +503,7 @@ export default function ResetPasswordPage() {
                     <Eye size={18} />
                   )}
                 </button>
+
               </div>
             </label>
 
