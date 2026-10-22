@@ -9,6 +9,12 @@ import InviteWelcomeAnimation from "@/components/invite-welcome/InviteWelcomeAni
 
 type Stage = "loading" | "password" | "welcome";
 
+type AcceptanceResponse = {
+  success?: boolean;
+  error?: string;
+  invitationStatus?: string;
+};
+
 export default function InviteAcceptPage() {
   const router = useRouter();
 
@@ -20,11 +26,11 @@ export default function InviteAcceptPage() {
   const [showPasswords, setShowPasswords] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [passwordAlreadySaved, setPasswordAlreadySaved] = useState(false);
   const [error, setError] = useState("");
   const [fading, setFading] = useState(false);
 
-  // Verifica la invitación o recupera la sesión ya creada
-  // por la ruta /auth/confirm.
+  // Verifica la invitación o recupera la sesión creada por /auth/confirm.
   useEffect(() => {
     let cancelled = false;
 
@@ -39,26 +45,23 @@ export default function InviteAcceptPage() {
         const tokenHash = hashParams.get("token_hash");
         const type = hashParams.get("type");
 
-        // Compatibilidad con invitaciones que llegan directamente
-        // con token_hash en el fragmento de la URL.
+        // Compatibilidad con invitaciones que llegan con token_hash en el fragmento.
         if (tokenHash || type) {
           if (!tokenHash || type !== "invite") {
             router.replace("/login?error=invalid-invite");
             return;
           }
 
-          // Retira el token de la barra del navegador.
           window.history.replaceState(
             {},
             document.title,
             `${window.location.pathname}${window.location.search}`,
           );
 
-          const { error: verifyError } =
-            await supabase.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: "invite",
-            });
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "invite",
+          });
 
           if (cancelled) return;
 
@@ -68,8 +71,6 @@ export default function InviteAcceptPage() {
           }
         }
 
-        // Si /auth/confirm ya verificó el enlace, debe existir
-        // una sesión válida aunque la URL no tenga token_hash.
         const {
           data: { user },
           error: userError,
@@ -98,10 +99,7 @@ export default function InviteAcceptPage() {
           user.email?.split("@")[0] ||
           "";
 
-        setName(
-          profileName ? `Bienvenido ${profileName}` : "Bienvenido",
-        );
-
+        setName(profileName ? `Bienvenido ${profileName}` : "Bienvenido");
         setStage("password");
       } catch {
         if (!cancelled) {
@@ -110,15 +108,14 @@ export default function InviteAcceptPage() {
       }
     }
 
-    loadInvite();
+    void loadInvite();
 
     return () => {
       cancelled = true;
     };
   }, [router]);
 
-  // Al guardar la contraseña correctamente, muestra la animación
-  // original y después redirige al mural.
+  // Muestra la animación después de completar la aceptación.
   useEffect(() => {
     if (stage !== "welcome") return;
 
@@ -140,51 +137,95 @@ export default function InviteAcceptPage() {
     event.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
-      return;
-    }
+    // Si la contraseña ya se guardó, solo hay que reintentar
+    // la actualización del estado de la invitación.
+    if (!passwordAlreadySaved) {
+      if (password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres.");
+        return;
+      }
 
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      return;
+      if (password !== confirmPassword) {
+        setError("Las contraseñas no coinciden.");
+        return;
+      }
     }
 
     setSaving(true);
 
     try {
-      const supabase = createClient();
+      if (!passwordAlreadySaved) {
+        const supabase = createClient();
 
-      // Comprueba que el empleado conserve la sesión de la invitación.
-      const {
-        data: { user },
-        error: sessionError,
-      } = await supabase.auth.getUser();
+        // Verifica que la sesión de la invitación siga vigente.
+        const {
+          data: { user },
+          error: sessionError,
+        } = await supabase.auth.getUser();
 
-      if (sessionError || !user) {
-        router.replace("/login?error=invite-session-missing");
-        return;
+        if (sessionError || !user) {
+          router.replace("/login?error=invite-session-missing");
+          return;
+        }
+
+        // Guarda la contraseña en Supabase Auth.
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+        });
+
+        if (updateError) {
+          setError(
+            "No se pudo guardar la contraseña. Comprueba los requisitos de seguridad e inténtalo de nuevo.",
+          );
+          return;
+        }
+
+        // Recordar que la contraseña se guardó para evitar actualizarla
+        // nuevamente si falla la petición siguiente.
+        setPasswordAlreadySaved(true);
       }
 
-      // Guarda la contraseña en Supabase Auth.
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      });
+      // Marcar la invitación como aceptada mediante la API protegida.
+      let response: Response;
 
-      if (updateError) {
+      try {
+        response = await fetch("/api/employees/accept-invite", {
+          method: "POST",
+        });
+      } catch {
         setError(
-          "No se pudo guardar la contraseña. " +
-            "Comprueba los requisitos de seguridad e inténtalo de nuevo.",
+          "Tu contraseña ya está guardada, pero no pudimos completar la invitación por un problema de conexión. Vuelve a pulsar el botón para reintentar.",
         );
         return;
       }
 
+      const result = (await response
+        .json()
+        .catch(() => null)) as AcceptanceResponse | null;
+
+      if (!response.ok || !result?.success) {
+        const detail =
+          typeof result?.error === "string" ? result.error : "";
+
+        setError(
+          "Tu contraseña ya está guardada, pero no pudimos completar la invitación." +
+            (detail ? ` ${detail}` : "") +
+            " Puedes volver a pulsar el botón para reintentar.",
+        );
+        return;
+      }
+
+      // Limpiar el formulario solo cuando la API haya confirmado el éxito.
       setPassword("");
       setConfirmPassword("");
+      setPasswordAlreadySaved(false);
+
       setStage("welcome");
     } catch {
       setError(
-        "Ocurrió un problema al guardar la contraseña. Inténtalo de nuevo.",
+        passwordAlreadySaved
+          ? "Tu contraseña ya está guardada, pero no pudimos completar la invitación. Inténtalo de nuevo."
+          : "Ocurrió un problema al guardar la contraseña. Inténtalo de nuevo.",
       );
     } finally {
       setSaving(false);
@@ -282,10 +323,15 @@ export default function InviteAcceptPage() {
 
         <div className="heading">
           <span className="eyebrow">INVITACIÓN ACEPTADA</span>
-          <h1>Crea tu contraseña</h1>
+          <h1>
+            {passwordAlreadySaved
+              ? "Completa tu invitación"
+              : "Crea tu contraseña"}
+          </h1>
           <p>
-            Configura tu contraseña personal para proteger tu cuenta
-            y comenzar a utilizar la plataforma.
+            {passwordAlreadySaved
+              ? "Tu contraseña ya está guardada. Reintenta completar tu invitación para activar tu acceso a la plataforma."
+              : "Configura tu contraseña personal para proteger tu cuenta y comenzar a utilizar la plataforma."}
           </p>
         </div>
 
@@ -302,8 +348,8 @@ export default function InviteAcceptPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               minLength={8}
-              required
-              disabled={saving}
+              required={!passwordAlreadySaved}
+              disabled={saving || passwordAlreadySaved}
             />
           </div>
 
@@ -319,31 +365,31 @@ export default function InviteAcceptPage() {
               autoComplete="new-password"
               placeholder="Escribe nuevamente tu contraseña"
               value={confirmPassword}
-              onChange={(event) =>
-                setConfirmPassword(event.target.value)
-              }
+              onChange={(event) => setConfirmPassword(event.target.value)}
               minLength={8}
-              required
-              disabled={saving}
+              required={!passwordAlreadySaved}
+              disabled={saving || passwordAlreadySaved}
             />
           </div>
 
-          <label className="show-password">
-            <input
-              type="checkbox"
-              checked={showPasswords}
-              onChange={(event) =>
-                setShowPasswords(event.target.checked)
-              }
-              disabled={saving}
-            />
-            Mostrar contraseñas
-          </label>
+          {!passwordAlreadySaved && (
+            <label className="show-password">
+              <input
+                type="checkbox"
+                checked={showPasswords}
+                onChange={(event) => setShowPasswords(event.target.checked)}
+                disabled={saving}
+              />
+              Mostrar contraseñas
+            </label>
+          )}
 
-          <p className="password-hint">
-            La contraseña debe tener al menos 8 caracteres. Utiliza
-            una contraseña segura que no compartas con otras personas.
-          </p>
+          {!passwordAlreadySaved && (
+            <p className="password-hint">
+              La contraseña debe tener al menos 8 caracteres. Utiliza una
+              contraseña segura que no compartas con otras personas.
+            </p>
+          )}
 
           {error && (
             <p className="error-message" role="alert">
@@ -355,8 +401,12 @@ export default function InviteAcceptPage() {
             {saving ? (
               <>
                 <span className="button-spinner" />
-                Guardando contraseña...
+                {passwordAlreadySaved
+                  ? "Completando invitación..."
+                  : "Guardando contraseña..."}
               </>
+            ) : passwordAlreadySaved ? (
+              "Reintentar completar invitación"
             ) : (
               "Guardar contraseña"
             )}
