@@ -110,7 +110,7 @@ const {data: updatedEmployee, error:updateError} = await admiDb
 .from("employees")
 .update({
   invitation_status: "accepted",
-update_at: new Date().toISOString(),
+updated_at: new Date().toISOString(),
 })
 .eq("id", employee.id)
 .eq("profile_id", user.id)
