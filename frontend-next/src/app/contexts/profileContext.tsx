@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useEffect,
   useState,
   type ReactNode,
@@ -13,14 +14,13 @@ export interface UserProfile {
   name: string;
   email: string;
   image: string;
-
   avatarPath?: string;
   role?: string;
-
   countryName?: string;
   area?: string;
   campaign?: string;
   entryDate?: string;
+  employeeType?:string;
 }
 
 interface ProfileContextValue {
@@ -28,6 +28,7 @@ interface ProfileContextValue {
   isAdmin: boolean;
   isProfileLoading: boolean;
   setProfile: (profile: UserProfile) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 export const ProfileContext =
@@ -49,6 +50,7 @@ const emptyProfile: UserProfile = {
   area: "",
   campaign: "",
   entryDate: "",
+  employeeType: "",
 };
 
 export function ProfileProvider({
@@ -63,12 +65,10 @@ export function ProfileProvider({
   const [isProfileLoading, setIsProfileLoading] =
     useState(true);
 
-  useEffect(() => {
+  const refreshProfile = useCallback(async () => {
     const supabase = createClient();
 
-    const loadProfile = async () => {
-      setIsProfileLoading(true);
-
+    try {
       const {
         data: { user },
         error: userError,
@@ -77,57 +77,141 @@ export function ProfileProvider({
       if (userError || !user) {
         setProfile(emptyProfile);
         setIsAdmin(false);
-        setIsProfileLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "name, email, role, country, area, campaign, avatar_url, created_at",
-        )
-        .eq("id", user.id)
-        .single();
+      const [
+        {
+          data: profileData,
+          error: profileError,
+        },
+        {
+          data: employeeData,
+          error: employeeError,
+        },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "name, email, role, country, area, campaign, avatar_url, created_at",
+          )
+          .eq("id", user.id)
+          .single(),
 
-      if (error) {
+        supabase
+          .from("employees")
+          .select("*")
+          .eq("profile_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      if (employeeError) {
+        console.error(
+          "Error consultando el empleado:",
+          {
+            code: employeeError.code,
+            message: employeeError.message,
+          },
+        );
+      }
+
+      const employee = employeeData as unknown as
+      | Record <string, unknown>
+      |null
+
+      const getEmployeeText= (...keys: string[]):string =>{
+        for (const key of keys){
+          const value = employee?.[key];
+          if (typeof value === "string" && value.trim()){
+            return value.trim();
+          }
+          if (typeof value === "number"){
+            return String(value);
+          }
+        }
+        return "";
+      };
+      const employeeName = getEmployeeText("name");
+
+      const employeeType= getEmployeeText(
+        "employee_type",
+      ).toLowerCase();
+
+      const employeeCountry = getEmployeeText(
+
+        "country_name",
+              );
+
+      const employeeArea =getEmployeeText("area");
+      const employeeCampaign = getEmployeeText("campaign");
+
+      const employeeEntryDate= getEmployeeText(
+        "hire_date"
+      )
+
+      if (profileError || !profileData) {
         console.error(
           "Error cargando el perfil:",
           {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
+            code: profileError?.code,
+            message: profileError?.message,
           },
         );
 
         setProfile({
+          ...emptyProfile,
           name:
+            employeeName ||
             user.user_metadata?.full_name ||
             user.user_metadata?.name ||
             user.email ||
             "",
           email: user.email || "",
           image:
-            user.user_metadata?.avatar_url ||
-            "",
-          role: "",
+            user.user_metadata?.avatar_url || "",
+          employeeType,
+          countryName: employeeCountry,
+          area: employeeArea,
+          campaign:
+          employeeType === "planta"
+          ?""
+          : employeeCampaign,
+          entryDate: employeeEntryDate
+          ? employeeEntryDate.slice(0, 10)
+          : "",
         });
 
         setIsAdmin(false);
-        setIsProfileLoading(false);
         return;
       }
 
+      /*
+       * Prioridad del nombre:
+       * 1. employees.name, cuando existe el vínculo.
+       * 2. profiles.name.
+       * 3. Metadatos del usuario.
+       */
+      const currentName =
+       employeeName ||
+       profileData.name ||
+       user.user_metadata?.full_name ||
+       user.user_metadata?.name ||
+       user.email ||
+       "";
+
+       const entryDateValue =
+      employeeEntryDate || profileData.created_at || "";
+
       let image = "";
 
-      if (data.avatar_url) {
+      if (profileData.avatar_url) {
         const {
           data: signedData,
           error: signedUrlError,
         } = await supabase.storage
           .from("avatars")
           .createSignedUrl(
-            data.avatar_url,
+            profileData.avatar_url,
             60 * 60,
           );
 
@@ -137,52 +221,76 @@ export function ProfileProvider({
             signedUrlError,
           );
         } else {
-          image =
-            signedData?.signedUrl ?? "";
+          image = signedData?.signedUrl || "";
         }
       }
 
       setProfile({
-        name: data.name || "",
+        name: currentName,
         email:
-          data.email ||
+          profileData.email ||
           user.email ||
           "",
         image,
         avatarPath:
-          data.avatar_url || "",
-        role:
-          data.role || "",
-        countryName:
-          data.country || "",
-        area:
-          data.area || "",
+          profileData.avatar_url || "",
+        role: profileData.role || "",
+        employeeType,
+        countryName: employeeCountry,
+        area: employeeArea,
         campaign:
-          data.campaign || "",
-        entryDate:
-          data.created_at || "",
-      });
+          employeeType === "planta"
+          ?""
+          : employeeCampaign,
+        entryDate: employeeEntryDate
+         ? employeeEntryDate.slice(0,10)
+        : (profileData.created_at || "").slice(0,10),
+        });
 
       setIsAdmin(
-        data.role === "admin",
+        profileData.role === "admin",
       );
-
+    } catch (error) {
+      console.error(
+        "Error inesperado cargando el perfil:",
+        error,
+      );
+    } finally {
       setIsProfileLoading(false);
-    };
-
-    void loadProfile();
-
-    const {
-      data: { subscription },
-    } =
-      supabase.auth.onAuthStateChange(() => {
-        void loadProfile();
-      });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    }
   }, []);
+
+ useEffect(() => {
+  const supabase = createClient();
+
+  const initialLoadTimer = window.setTimeout(() => {
+    void refreshProfile();
+  }, 0);
+
+  let authRefreshTimer: number | undefined;
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(() => {
+    if (authRefreshTimer !== undefined) {
+      window.clearTimeout(authRefreshTimer);
+    }
+
+    authRefreshTimer = window.setTimeout(() => {
+      void refreshProfile();
+    }, 0);
+  });
+
+  return () => {
+    window.clearTimeout(initialLoadTimer);
+
+    if (authRefreshTimer !== undefined) {
+      window.clearTimeout(authRefreshTimer);
+    }
+
+    subscription.unsubscribe();
+  };
+}, [refreshProfile]);
 
   return (
     <ProfileContext.Provider
@@ -191,6 +299,7 @@ export function ProfileProvider({
         isAdmin,
         isProfileLoading,
         setProfile,
+        refreshProfile,
       }}
     >
       {children}

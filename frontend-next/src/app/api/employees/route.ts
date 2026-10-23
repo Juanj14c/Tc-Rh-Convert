@@ -1,6 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 
+import {
+  createClient as createSupabaseAdminClient,
+} from "@supabase/supabase-js";
+import { error } from "console";
 type EmployeeType = "planta" | "campana";
 
 type EmployeeRow = {
@@ -27,6 +31,31 @@ type EmployeeRow = {
 };
 
 type SessionSupabaseClient = Awaited<ReturnType<typeof createSessionClient>>;
+function getServiceRoleClient() {
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL;
+
+  const serviceRoleKey =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  return createSupabaseAdminClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}
 
 function normalizeDisplayText(value: unknown): string {
   const raw = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
@@ -144,7 +173,9 @@ function toDbEmployee(value: unknown) {
     nationality: nullableDisplayText(employee.nationality),
     campaign: nullableText(campaign),
     employee_type: employeeType,
-    image: nullableText(employee.image),
+    ...(Object.prototype.hasOwnProperty.call(employee, "image")
+  ? {image: nullableText(employee.image)}
+    : {}),
     active: typeof employee.active === "boolean" ? employee.active : true,
   };
 }
@@ -204,14 +235,151 @@ function databaseError(error: { code?: string; message?: string; details?: strin
 
 export async function GET() {
   const authorization = await getAuthorizedAdminDb();
-  if (authorization.response) return authorization.response;
-  const db = authorization.db;
-  if (!db) return NextResponse.json({ error: "No se pudo conectar con Supabase." }, { status: 500 });
+  if( authorization.response){
+    return authorization.response;
+  }
+  const db= authorization.db;
 
-  const { data, error } = await db.from("employees").select("*").order("created_at", { ascending: false });
-  if (error) return databaseError(error);
+  if(!db){
+    return NextResponse.json(
+      {error: "No se pudo conectar con supabase."},
+      {status: 500},
+    );
+  }
+  const {data, error} = await db
+  .from("employees")
+  .select("*")
+  .order("name");
 
-  return NextResponse.json({ employees: ((data ?? []) as EmployeeRow[]).map(toEmployee) });
+  if(error){
+    return databaseError(error);
+  }
+const rows = (data ?? []) as EmployeeRow[];
+const baseEmployees = rows.map(toEmployee);
+const responseHeaders ={
+  "Cache-Control" : "no-store",
+};
+
+if (rows.length === 0){
+  return NextResponse.json(
+    {employees: []},
+    {headers: responseHeaders},
+  );
+}
+/**
+ * Solo después de verificar que quien solicita
+ * Los empleados es administrador, consultamos
+ * Los avatares guardados en profiles.
+ */
+const serviceDb = getServiceRoleClient();
+if (!serviceDb){
+  console.warn(
+    "[api/employees] Falta SUPABASE_SERVICE_ROLE_KEY."+
+    "Se utilizarán las imágenes existetnes de employees.image.",
+  );
+  return NextResponse.json(
+    {employees: baseEmployees},
+    {headers: responseHeaders},
+  );
+}
+const profileIds = [
+  ...new Set(
+    rows
+    .map((row)=> row.profile_id)
+    .filter((id): id is string => Boolean(id)),
+  ),
+];
+if ( profileIds.length === 0){
+  return NextResponse.json(
+    {emplooyes: baseEmployees},
+    {headers: responseHeaders},
+  );
+}
+const {
+  data: avatarProfiles,
+  error:avatarProfilesError,
+} = await serviceDb
+.from ("profiles")
+.select("id, avatar_url")
+.in("id", profileIds);
+
+if (avatarProfilesError){
+  console.error(
+    "[api/employees] No se pudieron consultar los avatares.",
+    {
+      code: avatarProfilesError.code,
+      message: avatarProfilesError.message
+    ,}
+  );
+  return NextResponse.json(
+    {employees: baseEmployees},
+    {headers: responseHeaders},
+  )
+}
+const avatarUrlByProfileId= new Map<string, string>();
+const profile = ( avatarProfiles ?? []) as Array<{
+  id: string;
+  avatar_url: string | null;
+}>;
+/**
+ * profiles.avatar_url contiene la ruta del archivo
+ *  dentro del bucket privbador " avatars"
+ *
+ * Creamos URLs firmadas para poder mostrar las
+ * imágenes en la tabla  de Empleados.
+ */
+
+await Promise.all (
+  profile.map(async(profile)=>{
+    const avatarPath = profile.avatar_url?.trim();
+    if(!avatarPath){
+      return;
+    }
+    const {
+      data: signedData,
+      error: signedError,
+    }= await serviceDb.storage
+        .from("avatars")
+        .createSignedUrl(avatarPath, 60 * 60);
+
+
+    if( signedError || !signedData?.signedUrl){
+      console.error(
+        "[api/employees] No se pudo generar una URL de avatar.",
+        {
+          profileId: profile.id,
+          message: signedError?.message,
+        }
+      );
+      return;
+    }
+    avatarUrlByProfileId.set(
+      profile.id,
+      signedData.signedUrl,
+    );
+  }),
+);
+/**
+ * Conservamos employees.image como alternatica
+ *  para empleados sin avatar vinculado en profiles
+ */
+
+const employees = rows.map((row,index)=>{
+  const profileImage = row.profile_id
+  ? avatarUrlByProfileId.get(row.profile_id)
+  :undefined;
+  return{
+    ...baseEmployees[index],
+    image:
+    profileImage ||
+    baseEmployees[index].image ||
+    "",
+  };
+});
+return NextResponse.json(
+  {employees},
+  {headers: responseHeaders},
+);
 }
 
 export async function POST(request: Request) {

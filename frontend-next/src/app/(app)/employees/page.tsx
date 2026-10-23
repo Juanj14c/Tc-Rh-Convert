@@ -385,8 +385,11 @@ function EmployeesPage() {
   };
 
   const handleSaveEmployee = async (employee: Employee) => {
+
     const editingId = editingEmployee?.id;
     const isEditing = editingId !== undefined;
+    const employeePayload={...employee};
+    delete employeePayload.image;
 
     try {
       const response = await fetch("/api/employees", {
@@ -396,8 +399,8 @@ function EmployeesPage() {
         },
         body: JSON.stringify(
           isEditing
-            ? { id: editingId, employee }
-            : { employee },
+            ? { id: editingId, employee: employeePayload }
+            : { employee: employeePayload },
         ),
       });
 
