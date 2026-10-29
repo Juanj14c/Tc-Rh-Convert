@@ -413,7 +413,7 @@ function SettingsPage() {
                 aria-readonly="true"
               />
             </label>
-
+{employeeType !== "campana"&& (
             <label>
               Área
 
@@ -424,6 +424,7 @@ function SettingsPage() {
                 aria-readonly="true"
               />
             </label>
+            )}
 
             {employeeType !== "planta" && (
               <label>

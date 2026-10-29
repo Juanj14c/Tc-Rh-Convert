@@ -13,18 +13,17 @@ import type {
   NewPost,
   PostAudience,
   PostAttachment,
+  MuralCampaign,
 } from "@/types/mural";
-
-import {
-  muralCampaigns,
-  muralAreas,
-  muralCountries,
-} from "@/data/mural";
 
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreatePost: (post: NewPost) => void;
+  onCreatePost: (post: NewPost) => Promise<boolean | void> | boolean | void;
+  countries: string[];
+  areas: string[];
+  campaigns: MuralCampaign[];
+  isSubmitting?: boolean;
   mode?: "create" | "edit";
   initialPost?: NewPost;
 }
@@ -73,6 +72,10 @@ export default function CreatePostModal({
   isOpen,
   onClose,
   onCreatePost,
+  countries,
+  areas,
+  campaigns,
+  isSubmitting = false,
   mode = "create",
   initialPost,
 }: CreatePostModalProps) {
@@ -90,22 +93,27 @@ export default function CreatePostModal({
     );
 
   const [country, setCountry] = useState(
-    initialPost?.audience === "country" ||
-      initialPost?.audience === "campaign"
-      ? initialPost?.audienceValue ?? ""
-      : "",
+    initialPost?.country ?? (
+      initialPost?.audience === "country" || initialPost?.audience === "campaign"
+        ? initialPost?.audienceValue ?? ""
+        : ""
+    ),
   );
 
   const [area, setArea] = useState(
-    initialPost?.audience === "area"
-      ? initialPost?.audienceValue ?? ""
-      : "",
+    initialPost?.area ?? (
+      initialPost?.audience === "area"
+        ? initialPost?.audienceValue ?? ""
+        : ""
+    ),
   );
 
   const [campaign, setCampaign] = useState(
-    initialPost?.audience === "campaign"
-      ? initialPost?.audienceValue ?? ""
-      : "",
+    initialPost?.campaign ?? (
+      initialPost?.audience === "campaign"
+        ? initialPost?.audienceValue ?? ""
+        : ""
+    ),
   );
 
   const [imageFile, setImageFile] =
@@ -113,6 +121,12 @@ export default function CreatePostModal({
 
   const [imagePreview, setImagePreview] =
     useState(initialPost?.image ?? "");
+
+  // La URL de vista previa y la ruta persistente de Storage son valores distintos.
+  const [imagePath, setImagePath] =
+    useState(initialPost?.imagePath ?? "");
+
+  const [submitError, setSubmitError] = useState("");
 
   const [link, setLink] = useState(
     initialPost?.link ?? "",
@@ -161,11 +175,8 @@ export default function CreatePostModal({
    * y luego convertimos a nombres.
    */
   const campaignOptions = country
-    ? muralCampaigns
-        .filter(
-          (item) =>
-            item.country === country,
-        )
+    ? campaigns
+        .filter((item) => item.country === country)
         .map((item) => item.name)
     : [];
 
@@ -190,7 +201,9 @@ export default function CreatePostModal({
       }
 
       setImageFile(file);
+      setImagePath("");
       setImagePreview(reader.result);
+      setSubmitError("");
     };
 
     reader.onerror = () => {
@@ -389,10 +402,13 @@ export default function CreatePostModal({
     setIsAreaOpen(false);
   };
 
-  const handleSubmit = (
+  const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
+    setSubmitError("");
+
+    if (isSubmitting) return;
 
     if (!title.trim() || !content.trim()) {
       return;
@@ -428,38 +444,36 @@ export default function CreatePostModal({
             ? country
             : undefined;
 
-    onCreatePost({
+    const post: NewPost = {
       title: title.trim(),
       content: content.trim(),
       audience,
       audienceValue,
-
       country:
-        audience === "campaign" ||
-        audience === "country"
+        audience === "campaign" || audience === "country"
           ? country || undefined
           : undefined,
-
-      area:
-        audience === "area"
-          ? area || undefined
-          : undefined,
-
-      campaign:
-        audience === "campaign"
-          ? campaign || undefined
-          : undefined,
-
-      image:
-        imagePreview || undefined,
-
-      link:
-        link.trim() || undefined,
-
+      area: audience === "area" ? area || undefined : undefined,
+      campaign: audience === "campaign" ? campaign || undefined : undefined,
+      image: imagePreview || undefined,
+      imagePath: imagePath || undefined,
+      link: link.trim() || undefined,
       attachments,
-    });
+    };
 
-    handleClose();
+    try {
+      const result = await onCreatePost(post);
+      // Los handlers del Mural devuelven false cuando el guardado falla.
+      if (result === false) return;
+      handleClose();
+    } catch (error) {
+      console.error("[CreatePostModal] No se pudo guardar la publicación:", error);
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la publicación. Inténtalo de nuevo.",
+      );
+    }
   };
 
   const handleClose = () => {
@@ -474,6 +488,8 @@ export default function CreatePostModal({
 
     setImageFile(null);
     setImagePreview("");
+    setImagePath("");
+    setSubmitError("");
 
     setLink("");
 
@@ -591,6 +607,7 @@ export default function CreatePostModal({
                     onClick={() => {
                       setImageFile(null);
                       setImagePreview("");
+                      setImagePath("");
                     }}
                     aria-label="Quitar imagen"
                     title="Quitar imagen"
@@ -745,7 +762,7 @@ export default function CreatePostModal({
                   <span>País</span>
 
                   <CustomSelect
-                    options={muralCountries}
+                    options={countries}
                     value={country}
                     placeholder="Selecciona un país"
                     isOpen={isCountryOpen}
@@ -806,7 +823,7 @@ export default function CreatePostModal({
                 <span>Área</span>
 
                 <CustomSelect
-                  options={muralAreas}
+                  options={areas}
                   value={area}
                   placeholder="Selecciona un área"
                   isOpen={isAreaOpen}
@@ -828,7 +845,7 @@ export default function CreatePostModal({
                 <span>País</span>
 
                 <CustomSelect
-                  options={muralCountries}
+                  options={countries}
                   value={country}
                   placeholder="Selecciona un país"
                   isOpen={isCountryOpen}
@@ -846,11 +863,18 @@ export default function CreatePostModal({
             )}
           </div>
 
+          {submitError && (
+            <p className="create-post-modal__error" role="alert">
+              {submitError}
+            </p>
+          )}
+
           <div className="create-post-modal__footer">
             <button
               type="button"
               className="create-post-modal__cancel"
               onClick={handleClose}
+              disabled={isSubmitting}
             >
               Cancelar
             </button>
@@ -858,10 +882,11 @@ export default function CreatePostModal({
             <button
               type="submit"
               className="create-post-modal__submit"
+              disabled={isSubmitting}
             >
-              {mode === "edit"
-                ? "Guardar cambios"
-                : "Publicar"}
+              {isSubmitting
+                ? mode === "edit" ? "Guardando…" : "Publicando…"
+                : mode === "edit" ? "Guardar cambios" : "Publicar"}
             </button>
           </div>
         </form>
