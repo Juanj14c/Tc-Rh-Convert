@@ -1,196 +1,227 @@
+
 "use client";
 
 import { useEffect } from "react";
 import { sileo } from "sileo";
 
-import { initialQuickTips } from "@/data/quickTips";
-
 import type { QuickTip } from "@/types/quickTips";
-
 import { useProfile } from "@/hooks/useProfile";
 
-const STORAGE_KEY =
-  "tc-rh-quick-tips";
-
-const SHOWN_KEY =
-  "tc-rh-quick-tips-shown";
+const SHOWN_KEY = "tc-rh-quick-tips-shown";
 
 interface ShownTipsData {
   date: string;
   ids: number[];
 }
 
-function getTips(): QuickTip[] {
-  try {
-    const stored =
-      window.localStorage.getItem(
-        STORAGE_KEY,
-      );
+interface TipsResponse {
+  tips?: QuickTip[];
+  error?: string;
+}
 
-    if (!stored) {
-      return initialQuickTips;
-    }
+function normalizeMatch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("es");
+}
 
-    return JSON.parse(
-      stored,
-    ) as QuickTip[];
-  } catch {
-    return initialQuickTips;
+/*
+ * La API es la fuente de verdad.
+ * No usamos consejos de ejemplo ni listas de localStorage.
+ */
+async function getTips(): Promise<QuickTip[]> {
+  const response = await fetch("/api/quick-tips", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const result =
+    (await response.json().catch(() => null)) as
+      | TipsResponse
+      | null;
+
+  if (!response.ok) {
+    throw new Error(
+      result?.error || "No se pudieron cargar los consejos.",
+    );
   }
+
+  return Array.isArray(result?.tips)
+    ? result.tips
+    : [];
 }
 
-function getShownData(): ShownTipsData {
-  const today =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
-
-  try {
-    const stored =
-      window.localStorage.getItem(
-        SHOWN_KEY,
-      );
-
-    if (!stored) {
-      return {
-        date: today,
-        ids: [],
-      };
-    }
-
-    const parsed =
-      JSON.parse(
-        stored,
-      ) as ShownTipsData;
-
-    if (
-      parsed.date !== today ||
-      !Array.isArray(parsed.ids)
-    ) {
-      return {
-        date: today,
-        ids: [],
-      };
-    }
-
-    return parsed;
-  } catch {
-    return {
-      date: today,
-      ids: [],
-    };
-  }
-}
-
-function saveShownData(
-  data: ShownTipsData,
-) {
-  window.localStorage.setItem(
-    SHOWN_KEY,
-    JSON.stringify(data),
-  );
-}
-
+/*
+ * Se utiliza para el administrador, cuya API devuelve
+ * todos los consejos para gestionarlos.
+ *
+ * Para los empleados, la propia API ya filtra la audiencia
+ * permitida según su asignación laboral.
+ */
 function tipMatchesUser(
   tip: QuickTip,
-  area?: string,
-  campaign?: string,
-) {
+  country?: string | null,
+  area?: string | null,
+  campaign?: string | null,
+): boolean {
   if (tip.audienceType === "all") {
     return true;
   }
 
+  // Un consejo segmentado sin país no tiene
+  // una audiencia válida en el nuevo modelo.
+  if (
+    !tip.audienceCountry ||
+    normalizeMatch(tip.audienceCountry) !==
+      normalizeMatch(country)
+  ) {
+    return false;
+  }
+
   if (tip.audienceType === "area") {
     return (
-      tip.audienceValue
-        ?.trim()
-        .toLowerCase() ===
-      area
-        ?.trim()
-        .toLowerCase()
+      normalizeMatch(tip.audienceValue) ===
+      normalizeMatch(area)
     );
   }
 
-  if (
-    tip.audienceType ===
-    "campaign"
-  ) {
+  if (tip.audienceType === "campaign") {
     return (
-      tip.audienceValue
-        ?.trim()
-        .toLowerCase() ===
-      campaign
-        ?.trim()
-        .toLowerCase()
+      normalizeMatch(tip.audienceValue) ===
+      normalizeMatch(campaign)
     );
   }
 
   return false;
 }
 
+function getShownData(): ShownTipsData {
+  const today = new Date().toISOString().slice(0, 10);
+
+  try {
+    const stored = window.localStorage.getItem(SHOWN_KEY);
+
+    if (!stored) {
+      return { date: today, ids: [] };
+    }
+
+    const parsed = JSON.parse(stored) as ShownTipsData;
+
+    if (
+      parsed.date !== today ||
+      !Array.isArray(parsed.ids)
+    ) {
+      return { date: today, ids: [] };
+    }
+
+    return {
+      date: today,
+      ids: parsed.ids.filter(
+        (id): id is number => Number.isSafeInteger(id),
+      ),
+    };
+  } catch {
+    return { date: today, ids: [] };
+  }
+}
+
+function saveShownData(data: ShownTipsData): void {
+  try {
+    window.localStorage.setItem(
+      SHOWN_KEY,
+      JSON.stringify(data),
+    );
+  } catch (error) {
+    console.error(
+      "[Consejos] No se pudo guardar el estado de notificaciones:",
+      error,
+    );
+  }
+}
+
 export default function QuickTipNotifier() {
-  const { profile } =
-    useProfile();
+  const { profile, isAdmin } = useProfile();
 
   useEffect(() => {
-    const timer =
-      window.setTimeout(() => {
-        const tips = getTips().filter(
-          (tip) => tip.active,
-        );
+    let cancelled = false;
 
-        if (tips.length === 0) {
-          return;
-        }
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const tips = await getTips();
 
-        const shownData =
-          getShownData();
+          if (cancelled) {
+            return;
+          }
 
-        const shownIds =
-          shownData.ids;
-
-        const availableTips =
-          tips.filter(
-            (tip) =>
-              !shownIds.includes(
-                tip.id,
-              ) &&
-              tipMatchesUser(
-                tip,
-                profile.area,
-                profile.campaign,
-              ),
+          const activeTips = tips.filter(
+            (tip) => tip.active,
           );
 
-        const tip =
-          availableTips[0];
+          /*
+           * Para administradores, la API devuelve todos
+           * los consejos. Filtramos por su audiencia antes
+           * de mostrar una notificación.
+           *
+           * Para empleados, la API ya realiza ese filtro
+           * en el servidor.
+           */
+          const availableForUser = isAdmin
+            ? activeTips.filter((tip) =>
+                tipMatchesUser(
+                  tip,
+                  profile.countryName,
+                  profile.area,
+                  profile.campaign,
+                ),
+              )
+            : activeTips;
 
-        if (!tip) {
-          return;
+          if (availableForUser.length === 0) {
+            return;
+          }
+
+          const shownData = getShownData();
+          const shownIds = shownData.ids;
+
+          const nextTip = availableForUser.find(
+            (tip) => !shownIds.includes(tip.id),
+          );
+
+          if (!nextTip || cancelled) {
+            return;
+          }
+
+          sileo.info({
+            title: `💡 ${nextTip.title}`,
+            description: nextTip.message,
+            duration: 6000,
+            position: "top-center",
+          });
+
+          saveShownData({
+            date: shownData.date,
+            ids: [...shownIds, nextTip.id],
+          });
+        } catch (error) {
+          if (!cancelled) {
+            console.error(
+              "[Consejos] No se pudieron cargar las notificaciones:",
+              error,
+            );
+          }
         }
+      })();
+    }, 1200);
 
-        sileo.info({
-          title: `💡 ${tip.title}`,
-          description:
-            tip.message,
-          duration: 6000,
-          position: "top-center",
-        });
-
-        saveShownData({
-          date: shownData.date,
-          ids: [
-            ...shownIds,
-            tip.id,
-          ],
-        });
-      }, 1200);
-
-    return () =>
-      window.clearTimeout(
-        timer,
-      );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [
+    isAdmin,
+    profile.countryName,
     profile.area,
     profile.campaign,
   ]);

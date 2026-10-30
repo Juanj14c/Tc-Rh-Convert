@@ -47,7 +47,21 @@ function getAudienceLabel(tip: QuickTip) {
 }
 
 async function readJson<T>(response: Response): Promise<T> {
-  return response.json() as Promise<T>;
+   const text = await response.text();
+
+   if(!text.trim()){
+    throw new Error(
+      `La API respondió sin contenido (HTTP ${response.status}).`,
+    );
+   }
+   try{
+    return JSON.parse(text) as T;
+   }catch{
+    throw new Error(
+      `La API devolvió una respues no válida (HTTP ${response.status}):
+      ${text.slice(0,250)}`,
+    );
+   }
 }
 
 function QuickTipsPage() {

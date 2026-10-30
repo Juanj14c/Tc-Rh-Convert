@@ -1,5 +1,8 @@
+
 import { NextResponse } from "next/server";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
 
 type AudienceType = "all" | "area" | "campaign";
 
@@ -9,6 +12,7 @@ type QuickTipRow = {
   message: string;
   audience_type: AudienceType;
   audience_value: string;
+  audience_country: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -19,6 +23,7 @@ type QuickTipData = {
   message: string;
   audience_type: AudienceType;
   audience_value: string;
+  audience_country: string | null;
   active: boolean;
 };
 
@@ -29,6 +34,7 @@ type ProfileInfo = {
   role: string | null;
   area: string | null;
   campaign: string | null;
+  country: string | null;
 };
 
 function toQuickTip(row: QuickTipRow) {
@@ -38,12 +44,15 @@ function toQuickTip(row: QuickTipRow) {
     message: row.message,
     audienceType: row.audience_type,
     audienceValue: row.audience_value ?? "",
+    audienceCountry: row.audience_country ?? "",
     active: row.active,
     createdAt: row.created_at,
   };
 }
 
-function normalizeMatch(value: string | null | undefined) {
+function normalizeMatch(
+  value: string | null | undefined,
+): string {
   return (value ?? "")
     .trim()
     .replace(/\s+/g, " ")
@@ -52,7 +61,10 @@ function normalizeMatch(value: string | null | undefined) {
 
 function parseTip(
   value: unknown,
-): { data: QuickTipData | null; error: string | null } {
+): {
+  data: QuickTipData | null;
+  error: string | null;
+} {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -83,6 +95,11 @@ function parseTip(
       ? input.audienceValue.trim()
       : "";
 
+  const audienceCountry =
+    typeof input.audienceCountry === "string"
+      ? input.audienceCountry.trim()
+      : "";
+
   if (!title) {
     return {
       data: null,
@@ -90,10 +107,24 @@ function parseTip(
     };
   }
 
+  if (title.length > 120) {
+    return {
+      data: null,
+      error: "El título no puede superar los 120 caracteres.",
+    };
+  }
+
   if (!message) {
     return {
       data: null,
       error: "El mensaje es obligatorio.",
+    };
+  }
+
+  if (message.length > 1500) {
+    return {
+      data: null,
+      error: "El mensaje no puede superar los 1500 caracteres.",
     };
   }
 
@@ -108,13 +139,34 @@ function parseTip(
     };
   }
 
-  if (
-    audienceType !== "all" &&
-    !audienceValue
-  ) {
+  if (audienceType !== "all" && !audienceCountry) {
     return {
       data: null,
-      error: "Debes seleccionar un área o campaña.",
+      error: "Debes seleccionar el país de destino.",
+    };
+  }
+
+  if (audienceCountry.length > 100) {
+    return {
+      data: null,
+      error: "El país seleccionado no es válido.",
+    };
+  }
+
+  if (audienceType !== "all" && !audienceValue) {
+    return {
+      data: null,
+      error:
+        audienceType === "area"
+          ? "Debes seleccionar un área."
+          : "Debes seleccionar una campaña.",
+    };
+  }
+
+  if (audienceValue.length > 100) {
+    return {
+      data: null,
+      error: "El valor del público no es válido.",
     };
   }
 
@@ -122,9 +174,11 @@ function parseTip(
     data: {
       title,
       message,
-      audience_type: audienceType as AudienceType,
+      audience_type: audienceType,
       audience_value:
         audienceType === "all" ? "" : audienceValue,
+      audience_country:
+        audienceType === "all" ? null : audienceCountry,
       active:
         typeof input.active === "boolean"
           ? input.active
@@ -164,7 +218,7 @@ async function getSessionContext(): Promise<{
     error: profileError,
   } = await db
     .from("profiles")
-    .select("role, area, campaign")
+    .select("role, area, campaign, country")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -213,7 +267,9 @@ async function getAuthorizedAdminDb(): Promise<{
     return {
       db: null,
       response: NextResponse.json(
-        { error: "No tienes permisos para administrar consejos." },
+        {
+          error: "No tienes permisos para administrar consejos.",
+        },
         { status: 403 },
       ),
     };
@@ -228,7 +284,7 @@ async function getAuthorizedAdminDb(): Promise<{
 /*
  * GET
  * Administradores: todos los consejos.
- * Empleados: consejos activos correspondientes a su audiencia.
+ * Empleados: consejos activos de su audiencia y país.
  */
 export async function GET() {
   const context = await getSessionContext();
@@ -248,13 +304,13 @@ export async function GET() {
 
   const isAdmin = profile?.role === "admin";
 
-  const query = db
+  let query = db
     .from("quick_tips")
     .select("*")
     .order("created_at", { ascending: false });
 
   if (!isAdmin) {
-    query.eq("active", true);
+    query = query.eq("active", true);
   }
 
   const { data, error } = await query;
@@ -276,38 +332,50 @@ export async function GET() {
 
   const rows = (data ?? []) as QuickTipRow[];
 
-  /*
-   * Los administradores pueden gestionar todos los consejos.
-   */
   if (isAdmin) {
     return NextResponse.json(
       { tips: rows.map(toQuickTip) },
-      { headers: { "Cache-Control": "no-store" } },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
 
   /*
-   * Para determinar la audiencia usamos primero
-   * el registro laboral vinculado al usuario.
+   * Usar la asignación laboral del empleado para filtrar.
+   * El perfil queda como respaldo para instalaciones donde
+   * aún no exista el registro laboral vinculado.
    */
   const {
     data: employee,
     error: employeeError,
   } = await db
     .from("employees")
-    .select("area, campaign, employee_type")
+    .select("country_name, area, campaign, employee_type")
     .eq("profile_id", userId)
     .maybeSingle();
 
   if (employeeError) {
     console.error(
-      "[api/quick-tips] No se pudo consultar la asignación del empleado:",
+      "[api/quick-tips] Error consultando la asignación del empleado:",
       {
         code: employeeError.code,
         message: employeeError.message,
       },
     );
+
+    return NextResponse.json(
+      {
+        error: "No se pudo verificar la asignación del empleado.",
+      },
+      { status: 500 },
+    );
   }
+
+  const employeeCountry =
+    employee?.country_name || profile?.country || "";
 
   const employeeArea =
     employee?.area || profile?.area || "";
@@ -316,8 +384,19 @@ export async function GET() {
     employee?.campaign || profile?.campaign || "";
 
   const visibleTips = rows.filter((tip) => {
+    // Los consejos generales no necesitan país.
     if (tip.audience_type === "all") {
       return true;
+    }
+
+    // Los consejos segmentados deben tener país
+    // y coincidir con el país del empleado.
+    if (
+      !tip.audience_country ||
+      normalizeMatch(tip.audience_country) !==
+        normalizeMatch(employeeCountry)
+    ) {
+      return false;
     }
 
     if (tip.audience_type === "area") {
@@ -343,7 +422,11 @@ export async function GET() {
 
   return NextResponse.json(
     { tips: visibleTips.map(toQuickTip) },
-    { headers: { "Cache-Control": "no-store" } },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
   );
 }
 
@@ -367,12 +450,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body =
+      (await request.json()) as Record<string, unknown>;
+
     const parsed = parseTip(body.tip);
 
     if (parsed.error || !parsed.data) {
       return NextResponse.json(
-        { error: parsed.error || "El consejo no es válido." },
+        {
+          error:
+            parsed.error || "El consejo no es válido.",
+        },
         { status: 400 },
       );
     }
@@ -402,7 +490,12 @@ export async function POST(request: Request) {
       { tip: toQuickTip(data as QuickTipRow) },
       { status: 201 },
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      "[api/quick-tips] Error procesando la creación:",
+      error instanceof Error ? error.message : "Error desconocido",
+    );
+
     return NextResponse.json(
       { error: "No se pudo procesar la solicitud." },
       { status: 400 },
@@ -412,8 +505,8 @@ export async function POST(request: Request) {
 
 /*
  * PATCH:
- * - active: activar/desactivar.
- * - tip: editar los datos del consejo.
+ * - active: activar o desactivar.
+ * - tip: editar contenido y audiencia.
  */
 export async function PATCH(request: Request) {
   const authorization = await getAuthorizedAdminDb();
@@ -432,12 +525,16 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body =
+      (await request.json()) as Record<string, unknown>;
+
     const id = Number(body.id);
 
     if (!Number.isSafeInteger(id) || id <= 0) {
       return NextResponse.json(
-        { error: "El identificador del consejo no es válido." },
+        {
+          error: "El identificador del consejo no es válido.",
+        },
         { status: 400 },
       );
     }
@@ -457,18 +554,21 @@ export async function PATCH(request: Request) {
 
       if (parsed.error || !parsed.data) {
         return NextResponse.json(
-          { error: parsed.error || "El consejo no es válido." },
+          {
+            error:
+              parsed.error || "El consejo no es válido.",
+          },
           { status: 400 },
         );
       }
 
-      // Editar el contenido no debe reactivar un consejo desactivado.
-      // El estado activo/inactivo se modifica únicamente con body.active.
+      // Editar el consejo no debe cambiar su estado activo/inactivo.
       changes = {
         title: parsed.data.title,
         message: parsed.data.message,
         audience_type: parsed.data.audience_type,
         audience_value: parsed.data.audience_value,
+        audience_country: parsed.data.audience_country,
         updated_at: new Date().toISOString(),
       };
     }
@@ -505,7 +605,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       tip: toQuickTip(data as QuickTipRow),
     });
-  } catch {
+  } catch (error) {
+    console.error(
+      "[api/quick-tips] Error procesando la actualización:",
+      error instanceof Error ? error.message : "Error desconocido",
+    );
+
     return NextResponse.json(
       { error: "No se pudo procesar la solicitud." },
       { status: 400 },
@@ -533,12 +638,16 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body =
+      (await request.json()) as Record<string, unknown>;
+
     const id = Number(body.id);
 
     if (!Number.isSafeInteger(id) || id <= 0) {
       return NextResponse.json(
-        { error: "El identificador del consejo no es válido." },
+        {
+          error: "El identificador del consejo no es válido.",
+        },
         { status: 400 },
       );
     }
@@ -576,7 +685,12 @@ export async function DELETE(request: Request) {
       success: true,
       id: Number(data.id),
     });
-  } catch {
+  } catch (error) {
+    console.error(
+      "[api/quick-tips] Error procesando la eliminación:",
+      error instanceof Error ? error.message : "Error desconocido",
+    );
+
     return NextResponse.json(
       { error: "No se pudo procesar la solicitud." },
       { status: 400 },

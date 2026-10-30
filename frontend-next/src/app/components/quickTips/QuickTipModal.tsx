@@ -1,15 +1,10 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Sparkles, X } from "lucide-react";
 
 import CustomSelect from "@/components/common/CustomSelect";
-
-import {sileo} from "sileo";
-import {
-  quickTipAreas,
-  quickTipCampaigns,
-} from "@/data/quickTips";
 
 import type {
   QuickTip,
@@ -33,6 +28,49 @@ interface GenerateDraftResponse {
   error?: string;
 }
 
+interface EmployeeAudienceOption {
+  country: string;
+  area: string;
+  campaign: string;
+  employeeType: "planta" | "campana";
+}
+
+interface AudienceOptionsResponse {
+  options?: EmployeeAudienceOption[];
+  error?: string;
+}
+
+function normalizeMatch(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("es");
+}
+
+function uniqueSorted(values: string[]): string[] {
+  const unique = new Map<string, string>();
+
+  for (const value of values) {
+    const clean = value.trim().replace(/\s+/g, " ");
+
+    if (!clean) {
+      continue;
+    }
+
+    const key = normalizeMatch(clean);
+
+    if (!unique.has(key)) {
+      unique.set(key, clean);
+    }
+  }
+
+  return Array.from(unique.values()).sort((a, b) =>
+    a.localeCompare(b, "es", {
+      sensitivity: "base",
+    }),
+  );
+}
+
 function QuickTipModal({
   isOpen,
   tip = null,
@@ -53,9 +91,23 @@ function QuickTipModal({
     );
 
   const [audienceValue, setAudienceValue] =
-    useState(
-      () => tip?.audienceValue ?? "",
-    );
+    useState(() => tip?.audienceValue ?? "");
+
+  const [audienceCountry, setAudienceCountry] =
+    useState(() => tip?.audienceCountry ?? "");
+
+  const [employeeOptions, setEmployeeOptions] =
+    useState<EmployeeAudienceOption[]>([]);
+
+  const [
+    isLoadingAudienceOptions,
+    setIsLoadingAudienceOptions,
+  ] = useState(false);
+
+  const [
+    audienceOptionsError,
+    setAudienceOptionsError,
+  ] = useState("");
 
   const [generationTopic, setGenerationTopic] =
     useState("");
@@ -70,6 +122,108 @@ function QuickTipModal({
   const [openSelect, setOpenSelect] = useState("");
 
   const isEditing = Boolean(tip);
+
+  /*
+   * Cargar las opciones reales desde empleados activos.
+   * No usamos listas fijas para países, campañas ni áreas.
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadAudienceOptions() {
+      setIsLoadingAudienceOptions(true);
+      setAudienceOptionsError("");
+
+      try {
+        const response = await fetch(
+          "/api/quick-tips/options",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
+
+        const result =
+          (await response.json().catch(() => null)) as
+            | AudienceOptionsResponse
+            | null;
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+              "No se pudieron cargar los países, áreas y campañas.",
+          );
+        }
+
+        if (!result || !Array.isArray(result.options)) {
+          throw new Error(
+            "La respuesta de opciones no tiene un formato válido.",
+          );
+        }
+
+        if (!cancelled) {
+          setEmployeeOptions(result.options);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "[Consejos] Error cargando opciones de audiencia:",
+            error,
+          );
+
+          setAudienceOptionsError(
+            error instanceof Error
+              ? error.message
+              : "No se pudieron cargar las opciones de audiencia.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingAudienceOptions(false);
+        }
+      }
+    }
+
+    void loadAudienceOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  /*
+   * Obtener países únicos y filtrar las opciones
+   * por el país seleccionado.
+   */
+  const countries = uniqueSorted(
+    employeeOptions.map((option) => option.country),
+  );
+
+  const optionsForCountry = employeeOptions.filter(
+    (option) =>
+      normalizeMatch(option.country) ===
+      normalizeMatch(audienceCountry),
+  );
+
+  const areaOptions = uniqueSorted(
+    optionsForCountry
+      .filter(
+        (option) => option.employeeType === "planta",
+      )
+      .map((option) => option.area),
+  );
+
+  const campaignOptions = uniqueSorted(
+    optionsForCountry
+      .filter(
+        (option) => option.employeeType === "campana",
+      )
+      .map((option) => option.campaign),
+  );
 
   if (!isOpen) {
     return null;
@@ -103,7 +257,23 @@ function QuickTipModal({
 
     setAudienceType(nextType);
     setAudienceValue("");
+
+    if (nextType === "all") {
+      setAudienceCountry("");
+    }
+
     setError("");
+    setGenerationError("");
+    setOpenSelect("");
+  };
+
+  const handleAudienceCountryChange = (
+    value: string,
+  ) => {
+    setAudienceCountry(value);
+    setAudienceValue("");
+    setError("");
+    setGenerationError("");
     setOpenSelect("");
   };
 
@@ -112,17 +282,51 @@ function QuickTipModal({
   ) => {
     setAudienceValue(value);
     setError("");
+    setGenerationError("");
     setOpenSelect("");
   };
 
+  const toggleSelect = (
+    selectName: string,
+  ) => {
+    setOpenSelect((current) =>
+      current === selectName
+        ? ""
+        : selectName,
+    );
+  };
+
   /*
-   * Solicita a nuestro backend un borrador de OlivIA.
-   * El backend protege la API key y verifica los permisos.
-   * Aquí únicamente recibimos el contenido y lo mostramos
-   * en el formulario, sin guardarlo en Supabase.
+   * Solicitar a OlivIA un borrador.
+   * La API solo devuelve el borrador; no lo publica.
    */
   const handleGenerateDraft = async () => {
     if (isGeneratingDraft) {
+      return;
+    }
+
+    const cleanCountry = audienceCountry.trim();
+    const cleanAudienceValue = audienceValue.trim();
+
+    if (
+      audienceType !== "all" &&
+      !cleanCountry
+    ) {
+      setGenerationError(
+        "Selecciona el país de destino antes de generar el consejo.",
+      );
+      return;
+    }
+
+    if (
+      audienceType !== "all" &&
+      !cleanAudienceValue
+    ) {
+      setGenerationError(
+        audienceType === "area"
+          ? "Selecciona un área antes de generar el consejo."
+          : "Selecciona una campaña antes de generar el consejo.",
+      );
       return;
     }
 
@@ -145,6 +349,10 @@ function QuickTipModal({
               title.trim(),
             audienceType,
             audienceValue,
+            audienceCountry:
+              audienceType === "all"
+                ? ""
+                : cleanCountry,
           }),
         },
       );
@@ -197,6 +405,9 @@ function QuickTipModal({
     }
   };
 
+  /*
+   * Validar y enviar el consejo al componente padre.
+   */
   const handleSubmit = (
     event: React.FormEvent<HTMLFormElement>,
   ) => {
@@ -206,6 +417,7 @@ function QuickTipModal({
     const cleanTitle = title.trim();
     const cleanMessage = message.trim();
     const cleanAudienceValue = audienceValue.trim();
+    const cleanAudienceCountry = audienceCountry.trim();
 
     if (!cleanTitle) {
       setError("El título es obligatorio.");
@@ -217,16 +429,53 @@ function QuickTipModal({
       return;
     }
 
-    if (
-      audienceType !== "all" &&
-      !cleanAudienceValue
-    ) {
-      setError(
-        audienceType === "area"
-          ? "Selecciona un área para publicar el consejo."
-          : "Selecciona una campaña para publicar el consejo.",
+    if (audienceType !== "all") {
+      if (!cleanAudienceCountry) {
+        setError("Selecciona el país de destino.");
+        return;
+      }
+
+      const validCountry = countries.some(
+        (country) =>
+          normalizeMatch(country) ===
+          normalizeMatch(cleanAudienceCountry),
       );
-      return;
+
+      if (!validCountry) {
+        setError(
+          "El país seleccionado ya no está disponible. Elige uno de la lista.",
+        );
+        return;
+      }
+
+      if (!cleanAudienceValue) {
+        setError(
+          audienceType === "area"
+            ? "Selecciona un área para publicar el consejo."
+            : "Selecciona una campaña para publicar el consejo.",
+        );
+        return;
+      }
+
+      const validOptions =
+        audienceType === "area"
+          ? areaOptions
+          : campaignOptions;
+
+      const validAudience = validOptions.some(
+        (option) =>
+          normalizeMatch(option) ===
+          normalizeMatch(cleanAudienceValue),
+      );
+
+      if (!validAudience) {
+        setError(
+          audienceType === "area"
+            ? "Selecciona un área válida para el país elegido."
+            : "Selecciona una campaña válida para el país elegido.",
+        );
+        return;
+      }
     }
 
     onSave({
@@ -237,18 +486,12 @@ function QuickTipModal({
         audienceType === "all"
           ? ""
           : cleanAudienceValue,
+      audienceCountry:
+        audienceType === "all"
+          ? ""
+          : cleanAudienceCountry,
       active: tip?.active ?? true,
     });
-  };
-
-  const toggleSelect = (
-    selectName: string,
-  ) => {
-    setOpenSelect((current) =>
-      current === selectName
-        ? ""
-        : selectName,
-    );
   };
 
   const audienceLabel =
@@ -257,6 +500,10 @@ function QuickTipModal({
       : audienceType === "area"
         ? "Área"
         : "Campaña";
+
+  const audienceOptionsReady =
+    !isLoadingAudienceOptions &&
+    !audienceOptionsError;
 
   return (
     <div
@@ -324,9 +571,7 @@ function QuickTipModal({
           {/* GENERACIÓN CON OLIVIA */}
 
           <label className="quick-tip-modal__field">
-            <span>
-              Tema para OlivIA (opcional)
-            </span>
+            <span>Tema para OlivIA (opcional)</span>
 
             <input
               type="text"
@@ -344,10 +589,17 @@ function QuickTipModal({
             type="button"
             className="quick-tip-modal__save"
             onClick={() => void handleGenerateDraft()}
-            disabled={isGeneratingDraft}
+            disabled={
+              isGeneratingDraft ||
+              (audienceType !== "all" &&
+                !audienceOptionsReady)
+            }
           >
             {isGeneratingDraft ? (
-              <Loader2 size={17} />
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
             ) : (
               <Sparkles size={17} />
             )}
@@ -405,45 +657,100 @@ function QuickTipModal({
             />
           </div>
 
-          {/* ÁREA */}
+          {/* ESTADO DE CARGA DE OPCIONES */}
 
-          {audienceType === "area" && (
+          {isLoadingAudienceOptions && (
+            <p role="status">
+              Cargando países, áreas y campañas...
+            </p>
+          )}
+
+          {audienceOptionsError && (
+            <div
+              className="quick-tip-modal__error"
+              role="alert"
+            >
+              {audienceOptionsError}
+            </div>
+          )}
+
+          {/* PAÍS */}
+
+          {audienceType !== "all" && (
             <div className="quick-tip-modal__field">
-              <span>Área</span>
+              <span>País de trabajo</span>
 
               <CustomSelect
-                options={quickTipAreas}
-                value={audienceValue}
-                placeholder="Selecciona un área"
-                isOpen={openSelect === "area"}
-                onChange={handleAudienceValueChange}
+                options={countries}
+                value={audienceCountry}
+                placeholder="Selecciona un país"
+                isOpen={openSelect === "country"}
+                onChange={handleAudienceCountryChange}
                 onToggle={() =>
-                  toggleSelect("area")
+                  toggleSelect("country")
                 }
                 onClose={() => setOpenSelect("")}
               />
             </div>
           )}
+
+          {/* ÁREA */}
+
+          {audienceType === "area" &&
+            audienceCountry && (
+              <div className="quick-tip-modal__field">
+                <span>Área</span>
+
+                <CustomSelect
+                  options={areaOptions}
+                  value={audienceValue}
+                  placeholder="Selecciona un área"
+                  isOpen={openSelect === "area"}
+                  onChange={handleAudienceValueChange}
+                  onToggle={() =>
+                    toggleSelect("area")
+                  }
+                  onClose={() => setOpenSelect("")}
+                />
+
+                {audienceOptionsReady &&
+                  areaOptions.length === 0 && (
+                    <p>
+                      No hay áreas activas registradas
+                      para este país.
+                    </p>
+                  )}
+              </div>
+            )}
 
           {/* CAMPAÑA */}
 
-          {audienceType === "campaign" && (
-            <div className="quick-tip-modal__field">
-              <span>Campaña</span>
+          {audienceType === "campaign" &&
+            audienceCountry && (
+              <div className="quick-tip-modal__field">
+                <span>Campaña</span>
 
-              <CustomSelect
-                options={quickTipCampaigns}
-                value={audienceValue}
-                placeholder="Selecciona una campaña"
-                isOpen={openSelect === "campaign"}
-                onChange={handleAudienceValueChange}
-                onToggle={() =>
-                  toggleSelect("campaign")
-                }
-                onClose={() => setOpenSelect("")}
-              />
-            </div>
-          )}
+                <CustomSelect
+                  options={campaignOptions}
+                  value={audienceValue}
+                  placeholder="Selecciona una campaña"
+                  isOpen={openSelect === "campaign"}
+                  onChange={handleAudienceValueChange}
+                  onToggle={() =>
+                    toggleSelect("campaign")
+                  }
+                  onClose={() => setOpenSelect("")}
+                />
+
+                {audienceOptionsReady &&
+                  campaignOptions.length === 0 && (
+                    <p>
+                      No hay campañas activas registradas
+                      para este país.
+                    </p>
+                  )}
+              </div>
+            )}
 
           {/* VALIDACIÓN */}
 

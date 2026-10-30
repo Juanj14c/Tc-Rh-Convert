@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 
@@ -56,6 +57,7 @@ function parseGeneratedDraft(
       }
 
       const object = parsed as Record<string, unknown>;
+
       const title =
         typeof object.title === "string"
           ? object.title.trim()
@@ -181,7 +183,9 @@ export async function POST(request: Request) {
       parsedBody = await request.json();
     } catch {
       return NextResponse.json(
-        { error: "La petición contiene datos inválidos." },
+        {
+          error: "La petición contiene datos inválidos.",
+        },
         { status: 400 },
       );
     }
@@ -192,7 +196,9 @@ export async function POST(request: Request) {
       Array.isArray(parsedBody)
     ) {
       return NextResponse.json(
-        { error: "Los datos de la petición no son válidos." },
+        {
+          error: "Los datos de la petición no son válidos.",
+        },
         { status: 400 },
       );
     }
@@ -215,7 +221,9 @@ export async function POST(request: Request) {
       )
     ) {
       return NextResponse.json(
-        { error: "El público seleccionado no es válido." },
+        {
+          error: "El público seleccionado no es válido.",
+        },
         { status: 400 },
       );
     }
@@ -227,6 +235,39 @@ export async function POST(request: Request) {
       typeof body.audienceValue === "string"
         ? body.audienceValue.trim().slice(0, 100)
         : "";
+
+    // Nuevo: recibir y validar el país de destino.
+    const audienceCountry =
+      typeof body.audienceCountry === "string"
+        ? body.audienceCountry.trim().slice(0, 100)
+        : "";
+
+    if (
+      audienceType !== "all" &&
+      !audienceCountry
+    ) {
+      return NextResponse.json(
+        {
+          error: "Selecciona el país de destino.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      audienceType !== "all" &&
+      !audienceValue
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            audienceType === "area"
+              ? "Selecciona un área."
+              : "Selecciona una campaña.",
+        },
+        { status: 400 },
+      );
+    }
 
     // 4. Obtener las credenciales exclusivamente del entorno.
     const baseUrl = process.env.OLIVIA_API_URL
@@ -258,12 +299,13 @@ export async function POST(request: Request) {
         : `${baseUrl}/v1/external/chat`;
 
     // 5. Preparar la instrucción para generar el consejo.
+    // Ahora OlivIA recibe también el país seleccionado.
     const audienceDescription =
       audienceType === "all"
         ? "todos los colaboradores"
         : audienceType === "area"
-          ? `el área ${audienceValue || "seleccionada por el administrador"}`
-          : `la campaña ${audienceValue || "seleccionada por el administrador"}`;
+          ? `el área ${audienceValue} del país ${audienceCountry}`
+          : `la campaña ${audienceValue} del país ${audienceCountry}`;
 
     const topicInstruction = topic
       ? `Tema solicitado: ${topic}.`
@@ -274,6 +316,8 @@ export async function POST(request: Request) {
       "Genera un consejo breve, práctico, respetuoso e inclusivo para colaboradores.",
       topicInstruction,
       `Público objetivo: ${audienceDescription}.`,
+      "Ten en cuenta el país y la audiencia laboral indicada para contextualizar el consejo.",
+      "No confundas campañas de países diferentes aunque tengan nombres similares.",
       "Usa español claro y natural.",
       "El título debe ser breve.",
       "El contenido debe ser útil, concreto y fácil de aplicar.",
@@ -323,7 +367,9 @@ export async function POST(request: Request) {
 
       console.error(
         "[quick-tips/generate] Error de conexión con OlivIA:",
-        error instanceof Error ? error.name : "Error desconocido",
+        error instanceof Error
+          ? error.name
+          : "Error desconocido",
       );
 
       return NextResponse.json(
@@ -413,7 +459,9 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(
       "[quick-tips/generate] Error interno:",
-      error instanceof Error ? error.message : "Error desconocido",
+      error instanceof Error
+        ? error.message
+        : "Error desconocido",
     );
 
     return NextResponse.json(
